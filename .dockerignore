@@ -1,0 +1,11 @@
+.git
+__pycache__/
+*.pyc
+venv/
+node_modules/
+frontend/node_modules/
+backend/__pycache__/
+ai_module/__pycache__/
+*.zip
+*.tar.gz
+ai_module/model/

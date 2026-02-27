@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8" />
+    <title>Анализ документа</title>
+    <style>
+        body { font-family: Arial; max-width: 600px; margin: 40px auto; }
+        textarea { width: 100%; height: 150px; }
+        pre { background: #f3f3f3; padding: 10px; white-space: pre-wrap; }
+        .block { margin-bottom: 20px; }
+        .doc-item { padding: 8px; background: #eef; margin-bottom: 6px; border-radius: 6px; }
+    </style>
+</head>
+<body>
+
+    <h1>AI-анализ документов</h1>
+
+    <div class="block">
+        <h3>Загрузить файл</h3>
+        <input type="file" id="fileInput" />
+        <button onclick="uploadFile()">Загрузить</button>
+        <p id="uploadStatus"></p>
+    </div>
+
+    <hr>
+
+    <div class="block">
+        <h3>Список загруженных документов</h3>
+        <button onclick="loadDocuments()">Показать документы</button>
+        <div id="docsList"></div>
+    </div>
+
+    <hr>
+
+    <div class="block">
+        <h3>Анализ документа</h3>
+        <input type="number" id="docIdInput" placeholder="ID документа" />
+        <button onclick="analyzeDocument()">Анализировать</button>
+        <pre id="analysisResult"></pre>
+    </div>
+
+<script>
+  const API_BASE = `${window.location.protocol}//${window.location.hostname}:8000`;
+
+  async function uploadFile() {
+    const file = document.getElementById("fileInput").files[0];
+    if (!file) {
+      alert("Выберите файл");
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append("file", file);
+
+    const res = await fetch(`${API_BASE}/upload`, {
+      method: "POST",
+      body: formData
+    });
+
+    if (!res.ok) {
+      const text = await res.text();
+      document.getElementById("uploadStatus").innerText =
+        `Ошибка загрузки (HTTP ${res.status}): ${text.slice(0, 200)}`;
+      return;
+    }
+
+    const data = await res.json();
+
+    if (data.id) {
+      document.getElementById("uploadStatus").innerText = "Файл загружен! ID: " + data.id;
+      document.getElementById("docIdInput").value = data.id;
+      loadDocuments();
+    } else {
+      document.getElementById("uploadStatus").innerText = "Ошибка: " + JSON.stringify(data);
+    }
+  }
+
+  async function loadDocuments() {
+    const res = await fetch(`${API_BASE}/documents`);
+
+    if (!res.ok) {
+      const text = await res.text();
+      document.getElementById("docsList").innerText =
+        `Ошибка загрузки списка (HTTP ${res.status}): ${text.slice(0, 200)}`;
+      return;
+    }
+
+    const docs = await res.json();
+
+    const container = document.getElementById("docsList");
+    container.innerHTML = "";
+
+    docs.forEach(doc => {
+      const div = document.createElement("div");
+      div.className = "doc-item";
+
+      div.innerHTML = `
+        <b>ID:</b> ${doc.id}<br>
+        <b>Имя:</b> ${doc.filename}<br>
+        <b>Размер:</b> ${Math.round(doc.size / 1024)} KB<br>
+        <b>Дата:</b> ${new Date(doc.uploaded_at).toLocaleString()}<br>
+        <button onclick="setDocId(${doc.id})">Выбрать</button>
+      `;
+
+      container.appendChild(div);
+    });
+  }
+
+  function setDocId(id) {
+    document.getElementById("docIdInput").value = id;
+  }
+
+  async function analyzeDocument() {
+    const id = document.getElementById("docIdInput").value;
+    if (!id) {
+      alert("Введите ID документа");
+      return;
+    }
+
+    const res = await fetch(`${API_BASE}/analyze_document/${id}`, {
+      method: "POST"
+    });
+
+    if (!res.ok) {
+      const text = await res.text();
+      document.getElementById("analysisResult").innerText =
+        `Ошибка анализа (HTTP ${res.status}): ${text.slice(0, 500)}`;
+      return;
+    }
+
+    const data = await res.json();
+    document.getElementById("analysisResult").innerText =
+      JSON.stringify(data, null, 2);
+  }
+
+  // Автозагрузка списка при открытии страницы
+  window.addEventListener("load", () => {
+    loadDocuments().catch(() => {});
+  });
+</script>
+
+</body>
+</html>

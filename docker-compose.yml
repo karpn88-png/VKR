@@ -1,0 +1,48 @@
+version: "3.9"
+
+services:
+
+  db:
+    image: postgres:15
+    container_name: postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: vkr
+      POSTGRES_PASSWORD: vkrpass
+      POSTGRES_DB: vkrdb
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  ai:
+    build: ./ai_module
+    container_name: ai_module
+    ports:
+      - "5000:5000"
+    restart: unless-stopped
+
+  backend:
+    build: ./backend
+    container_name: backend
+    ports:
+      - "8000:8000"
+    depends_on:
+      - ai
+      - db
+    restart: unless-stopped
+    environment:
+      AI_URL: "http://ai:5000"
+      DATABASE_URL: "postgresql+psycopg2://vkr:vkrpass@db/vkrdb"
+
+  frontend:
+    build: ./frontend
+    container_name: frontend
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  postgres_data:

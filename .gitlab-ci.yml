@@ -1,0 +1,45 @@
+stages:
+  - build
+  - test
+  - deploy
+
+variables:
+  DOCKER_DRIVER: overlay2
+
+# Включаем Docker внутри GitLab CI
+services:
+  - docker:dind
+
+before_script:
+  - docker info
+
+# === BUILD ПРОЕКТА ===
+
+build_images:
+  stage: build
+  image: docker:latest
+  script:
+    - docker build -t vkr_ai ./ai_module
+    - docker build -t vkr_backend ./backend
+    - docker build -t vkr_frontend ./frontend
+
+# === ПРОВЕРКА РАБОТОСПОСОБНОСТИ ===
+
+integration_test:
+  stage: test
+  image: docker:latest
+  script:
+    - docker-compose up --build -d
+    - sleep 8
+    - curl -f http://localhost:8000 || (echo "Backend failed" && exit 1)
+    - curl -f http://localhost:3000 || (echo "Frontend failed" && exit 1)
+    - curl -X POST http://localhost:5000/analyze -H "Content-Type: application/json" -d '{"text":"test"}'
+    - docker-compose down
+
+# === ДЕПЛОЙ (РУЧНОЙ) ===
+
+deploy:
+  stage: deploy
+  script:
+    - echo "Deploying... сюда можно добавить SCP / rsync / kubectl"
+  when: manual
