@@ -40,7 +40,7 @@
     </div>
 
 <script>
-  const API_BASE = `${window.location.protocol}//${window.location.hostname}:8000`;
+  const API_BASE = `${window.location.protocol}//${window.location.hostname}/api`;
 
   async function uploadFile() {
     const file = document.getElementById("fileInput").files[0];
@@ -111,27 +111,49 @@
   }
 
   async function analyzeDocument() {
-    const id = document.getElementById("docIdInput").value;
-    if (!id) {
-      alert("Введите ID документа");
-      return;
-    }
-
-    const res = await fetch(`${API_BASE}/analyze_document/${id}`, {
-      method: "POST"
-    });
-
-    if (!res.ok) {
-      const text = await res.text();
-      document.getElementById("analysisResult").innerText =
-        `Ошибка анализа (HTTP ${res.status}): ${text.slice(0, 500)}`;
-      return;
-    }
-
-    const data = await res.json();
-    document.getElementById("analysisResult").innerText =
-      JSON.stringify(data, null, 2);
+  const id = document.getElementById("docIdInput").value;
+  if (!id) {
+    alert("Введите ID документа");
+    return;
   }
+
+  // Очистим вывод перед новым анализом
+  document.getElementById("analysisResult").innerText = "Анализируем...";
+  const llmEl = document.getElementById("llmReport");
+  if (llmEl) llmEl.innerText = "Генерируем отчёт LLM...";
+
+  const res = await fetch(`${API_BASE}/analyze_document/${id}`, {
+    method: "POST"
+  });
+
+  if (!res.ok) {
+    const text = await res.text();
+    document.getElementById("analysisResult").innerText =
+      `Ошибка анализа (HTTP ${res.status}): ${text.slice(0, 500)}`;
+    if (llmEl) llmEl.innerText = "";
+    return;
+  }
+
+  const data = await res.json();
+
+  // 1) Локальный анализ (JSON)
+  document.getElementById("analysisResult").innerText =
+    JSON.stringify(data.analysis ?? data, null, 2);
+
+  // 2) Отчёт LLM (читабельный текст)
+  if (llmEl) {
+    if (data.llm_report) {
+      llmEl.innerText = data.llm_report;
+    } else if (data.llmReport) {
+      // на случай другого имени поля
+      llmEl.innerText = data.llmReport;
+    } else {
+      llmEl.innerText = "Отчёт LLM отсутствует.";
+    }
+  }
+}
+<h3>Отчёт LLM</h3>
+<pre id="llmReport" style="white-space: pre-wrap; border:1px solid #ddd; padding:12px; border-radius:8px; background:#f7f7f7;"></pre>
 
   // Автозагрузка списка при открытии страницы
   window.addEventListener("load", () => {

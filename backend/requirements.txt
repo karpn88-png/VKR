@@ -5,4 +5,4 @@ sqlalchemy
 python-multipart
 python-docx
 pypdf2
-requests
+requests==2.32.3

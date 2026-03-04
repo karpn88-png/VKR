@@ -16,3 +16,6 @@ ai_module/model/
 .env
 *.log
 postgres_data/
+
+backend/
+.env

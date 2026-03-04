@@ -7,7 +7,7 @@ import requests
 
 from sqlalchemy import create_engine, Column, Integer, String, LargeBinary, DateTime
 from sqlalchemy.orm import sessionmaker, declarative_base
-
+from gigachat_client import generate_report
 
 # ============================================================
 # DATABASE SETUP
@@ -136,16 +136,27 @@ def analyze_document(doc_id: int):
 
     # ============================================================
     # ОТПРАВКА В AI-МОДУЛЬ
-    # ============================================================
+    # ===========================================================
 
     try:
         r = requests.post(f"{AI_URL}/analyze", json={"text": text})
-        return {
-            "filename": filename,
-            "analysis": r.json()
-        }
+        analysis = r.json()
     except Exception as e:
         return {
             "error": "AI module unavailable",
             "details": str(e)
         }
+
+# GigaChat — отдельно, чтобы не ломать основной анализ
+    try:
+        llm_report = generate_report(text, local_signals={
+            "local_analysis_summary": analysis
+        })
+    except Exception as e:
+        llm_report = f"[GigaChat error] {e}"
+
+    return {
+        "filename": filename,
+        "analysis": analysis,
+        "llm_report": llm_report
+    }
