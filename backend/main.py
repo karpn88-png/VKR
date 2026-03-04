@@ -5,7 +5,14 @@ from fastapi import FastAPI, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 import requests
 
-from sqlalchemy import create_engine, Column, Integer, String, LargeBinary, DateTime
+import json
+from io import BytesIO
+from fastapi.responses import StreamingResponse
+from docx import Document as DocxDocument
+
+from sqlalchemy import Text
+from sqlalchemy import create_engine, Column, Integer, String, LargeBinary, DateTime, ForeignKey
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import sessionmaker, declarative_base
 from gigachat_client import generate_report
 
@@ -29,6 +36,15 @@ class Document(Base):
     content = Column(LargeBinary, nullable=False)
     uploaded_at = Column(DateTime, default=datetime.datetime.utcnow)
 
+class AnalysisResult(Base):
+    __tablename__ = "analysis_results"
+
+    id = Column(Integer, primary_key=True, index=True)
+    doc_id = Column(Integer, ForeignKey("documents.id", ondelete="CASCADE"), index=True, nullable=False)
+
+    analysis_json = Column(JSONB, nullable=True)
+    llm_report = Column(Text, nullable=True)
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
 
 Base.metadata.create_all(bind=engine)
 
@@ -155,8 +171,62 @@ def analyze_document(doc_id: int):
     except Exception as e:
         llm_report = f"[GigaChat error] {e}"
 
+    db = SessionLocal()
+    db.add(AnalysisResult(
+        doc_id=doc_id,
+        analysis_json=analysis,
+        llm_report=llm_report
+    ))
+    db.commit()
+    db.close()
+
     return {
         "filename": filename,
         "analysis": analysis,
         "llm_report": llm_report
     }
+
+@app.get("/report_word/{doc_id}")
+def report_word(doc_id: int):
+    db = SessionLocal()
+
+    doc = db.query(Document).filter(Document.id == doc_id).first()
+    if not doc:
+        db.close()
+        return {"error": "Document not found"}
+
+    result = (
+        db.query(AnalysisResult)
+        .filter(AnalysisResult.doc_id == doc_id)
+        .order_by(AnalysisResult.created_at.desc())
+        .first()
+    )
+    db.close()
+
+    if not result:
+        return {"error": "No analysis found for this document yet. Run analyze first."}
+
+    # Формируем DOCX
+    d = DocxDocument()
+    d.add_heading("Отчёт анализа ВКР", level=1)
+    d.add_paragraph(f"Файл: {doc.filename}")
+    d.add_paragraph(f"Дата: {result.created_at}")
+
+    d.add_heading("Отчёт LLM", level=2)
+    d.add_paragraph(result.llm_report or "—")
+
+    d.add_heading("Технический анализ (JSON)", level=2)
+    d.add_paragraph(json.dumps(result.analysis_json or {}, ensure_ascii=False, indent=2))
+
+    buf = BytesIO()
+    d.save(buf)
+    buf.seek(0)
+
+    safe_name = doc.filename.replace("/", "_").replace("\\", "_")
+    out_name = f"report_{doc_id}_{safe_name}.docx"
+
+    return StreamingResponse(
+        buf,
+        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        headers={"Content-Disposition": f'attachment; filename="{out_name}"'}
+    )

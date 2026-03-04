@@ -36,7 +36,13 @@
         <h3>Анализ документа</h3>
         <input type="number" id="docIdInput" placeholder="ID документа" />
         <button onclick="analyzeDocument()">Анализировать</button>
+
+        <h4>Результат анализа</h4>
         <pre id="analysisResult"></pre>
+
+        <h4>Отчёт LLM</h4>
+        <pre id="llmReport"></pre>
+        <button onclick="downloadWordReport()">Скачать отчёт в Word</button>
     </div>
 
 <script>
@@ -152,13 +158,21 @@
     }
   }
 }
-<h3>Отчёт LLM</h3>
-<pre id="llmReport" style="white-space: pre-wrap; border:1px solid #ddd; padding:12px; border-radius:8px; background:#f7f7f7;"></pre>
+
 
   // Автозагрузка списка при открытии страницы
   window.addEventListener("load", () => {
     loadDocuments().catch(() => {});
   });
+
+function downloadWordReport() {
+  const id = document.getElementById("docIdInput").value;
+  if (!id) {
+    alert("Введите ID документа");
+    return;
+  }
+  window.location.href = `${API_BASE}/report_word/${id}`;
+}
 </script>
 
 </body>
