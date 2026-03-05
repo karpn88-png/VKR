@@ -1,21 +1,29 @@
-
 __pycache__/
 *.pyc
+
+# Python venv
 venv/
+
+# Node
 node_modules/
 frontend/node_modules/
 
+# AI model (не хранить в git)
 ai_module/model/
-*.zip
-*.tar.gz
-.DS_Store
 *.safetensors
 *.bin
 *.h5
-# Docker
+
+# Archives
+*.zip
+*.tar.gz
+
+# OS
+.DS_Store
+
+# Docker / env / logs
 .env
 *.log
-postgres_data/
 
-backend/
-.env
+# Postgres volume (локальные данные)
+postgres_data/
