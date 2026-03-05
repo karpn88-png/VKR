@@ -1,19 +1,20 @@
 import os
 import io
+import json
 import datetime
+from io import BytesIO
+
+import requests
 from fastapi import FastAPI, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
-import requests
-
-import json
-from io import BytesIO
 from fastapi.responses import StreamingResponse
+
 from docx import Document as DocxDocument
 
-from sqlalchemy import Text
-from sqlalchemy import create_engine, Column, Integer, String, LargeBinary, DateTime, ForeignKey
+from sqlalchemy import create_engine, Column, Integer, String, LargeBinary, DateTime, ForeignKey, Text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import sessionmaker, declarative_base
+
 from gigachat_client import generate_report
 
 # ============================================================
@@ -36,18 +37,29 @@ class Document(Base):
     content = Column(LargeBinary, nullable=False)
     uploaded_at = Column(DateTime, default=datetime.datetime.utcnow)
 
+
 class AnalysisResult(Base):
+    """
+    Храним:
+    - llm_report (текстовый отчёт)
+    - analysis_json (НО: только 4 метрики, не весь JSON)
+    """
     __tablename__ = "analysis_results"
 
     id = Column(Integer, primary_key=True, index=True)
     doc_id = Column(Integer, ForeignKey("documents.id", ondelete="CASCADE"), index=True, nullable=False)
 
+    # Здесь сохраняем ТОЛЬКО:
+    # total_words, unique_words, uniqueness, embedding_dim
     analysis_json = Column(JSONB, nullable=True)
+
+    # Здесь сохраняем полный отчёт LLM
     llm_report = Column(Text, nullable=True)
+
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
 
-Base.metadata.create_all(bind=engine)
 
+Base.metadata.create_all(bind=engine)
 
 # ============================================================
 # FASTAPI APP
@@ -62,10 +74,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
 # ============================================================
 # ROUTES
 # ============================================================
+
 
 @app.post("/upload")
 async def upload_file(file: UploadFile = File(...)):
@@ -94,7 +106,7 @@ def list_documents():
             "id": d.id,
             "filename": d.filename,
             "uploaded_at": d.uploaded_at.isoformat(),
-            "size": len(d.content)
+            "size": len(d.content),
         }
         for d in docs
     ]
@@ -113,14 +125,14 @@ def get_document(doc_id: int):
     return {
         "id": doc.id,
         "filename": doc.filename,
-        "uploaded_at": doc.uploaded_at,
-        "size": len(doc.content)
+        "uploaded_at": doc.uploaded_at.isoformat(),
+        "size": len(doc.content),
     }
 
 
 @app.post("/analyze_document/{doc_id}")
 def analyze_document(doc_id: int):
-    """Извлечь текст из файла и отправить в AI-модуль для анализа"""
+    """Извлечь текст из файла, отправить в AI-модуль, сгенерировать LLM-отчёт и сохранить его в БД"""
     db = SessionLocal()
     doc = db.query(Document).filter(Document.id == doc_id).first()
     db.close()
@@ -138,7 +150,6 @@ def analyze_document(doc_id: int):
         text = doc.content.decode("utf-8", errors="ignore")
 
     elif filename.endswith(".docx"):
-        from docx import Document as DocxDocument
         f = DocxDocument(io.BytesIO(doc.content))
         text = "\n".join(p.text for p in f.paragraphs)
 
@@ -152,10 +163,11 @@ def analyze_document(doc_id: int):
 
     # ============================================================
     # ОТПРАВКА В AI-МОДУЛЬ
-    # ===========================================================
+    # ============================================================
 
     try:
-        r = requests.post(f"{AI_URL}/analyze", json={"text": text})
+        r = requests.post(f"{AI_URL}/analyze", json={"text": text}, timeout=120)
+        r.raise_for_status()
         analysis = r.json()
     except Exception as e:
         return {
@@ -163,18 +175,34 @@ def analyze_document(doc_id: int):
             "details": str(e)
         }
 
-# GigaChat — отдельно, чтобы не ломать основной анализ
+    # Оставляем только нужные метрики (не возвращаем/не сохраняем полный JSON)
+    brief = {
+        "total_words": analysis.get("total_words"),
+        "unique_words": analysis.get("unique_words"),
+        "uniqueness": analysis.get("uniqueness"),
+        "embedding_dim": analysis.get("embedding_dim"),
+    }
+
+    # ============================================================
+    # GigaChat — отдельно, чтобы не ломать основной анализ
+    # ============================================================
+
     try:
-        llm_report = generate_report(text, local_signals={
-            "local_analysis_summary": analysis
-        })
+        llm_report = generate_report(
+            text,
+            local_signals={"local_analysis_summary": brief}
+        )
     except Exception as e:
         llm_report = f"[GigaChat error] {e}"
+
+    # ============================================================
+    # СОХРАНЯЕМ В БД (ТОЛЬКО brief + llm_report)
+    # ============================================================
 
     db = SessionLocal()
     db.add(AnalysisResult(
         doc_id=doc_id,
-        analysis_json=analysis,
+        analysis_json=brief,
         llm_report=llm_report
     ))
     db.commit()
@@ -182,12 +210,14 @@ def analyze_document(doc_id: int):
 
     return {
         "filename": filename,
-        "analysis": analysis,
+        "analysis": brief,
         "llm_report": llm_report
     }
 
+
 @app.get("/report_word/{doc_id}")
 def report_word(doc_id: int):
+    """Скачать последний LLM-отчёт в Word + 4 метрики"""
     db = SessionLocal()
 
     doc = db.query(Document).filter(Document.id == doc_id).first()
@@ -206,17 +236,20 @@ def report_word(doc_id: int):
     if not result:
         return {"error": "No analysis found for this document yet. Run analyze first."}
 
-    # Формируем DOCX
     d = DocxDocument()
     d.add_heading("Отчёт анализа ВКР", level=1)
     d.add_paragraph(f"Файл: {doc.filename}")
     d.add_paragraph(f"Дата: {result.created_at}")
 
+    d.add_heading("Метрики текста", level=2)
+    a = result.analysis_json or {}
+    d.add_paragraph(f"total_words: {a.get('total_words')}")
+    d.add_paragraph(f"unique_words: {a.get('unique_words')}")
+    d.add_paragraph(f"uniqueness: {a.get('uniqueness')}")
+    d.add_paragraph(f"embedding_dim: {a.get('embedding_dim')}")
+
     d.add_heading("Отчёт LLM", level=2)
     d.add_paragraph(result.llm_report or "—")
-
-    d.add_heading("Технический анализ (JSON)", level=2)
-    d.add_paragraph(json.dumps(result.analysis_json or {}, ensure_ascii=False, indent=2))
 
     buf = BytesIO()
     d.save(buf)
