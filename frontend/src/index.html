@@ -4,12 +4,20 @@
   <meta charset="UTF-8" />
   <title>Анализ документа</title>
   <style>
-    body { font-family: Arial; max-width: 600px; margin: 40px auto; }
-    textarea { width: 100%; height: 150px; }
-    pre { background: #f3f3f3; padding: 10px; white-space: pre-wrap; }
+    body { font-family: Arial; max-width: 900px; margin: 40px auto; padding: 0 16px; }
+    pre { background: #f3f3f3; padding: 10px; white-space: pre-wrap; word-break: break-word; }
     .block { margin-bottom: 20px; }
-    .doc-item { padding: 8px; background: #eef; margin-bottom: 6px; border-radius: 6px; }
-    button { margin-top: 8px; }
+    .doc-item { padding: 10px; background: #eef; margin-bottom: 8px; border-radius: 8px; }
+    .report-item { padding: 12px; background: #f9f9ff; margin-bottom: 10px; border-radius: 10px; border: 1px solid #ddd; }
+    .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+    input[type="number"] { width: 160px; padding: 6px 8px; }
+    button { padding: 8px 10px; cursor: pointer; }
+    .muted { color: #666; font-size: 12px; }
+    .error { color: #b00020; }
+    .ok { color: #146c2e; }
+    .metrics { background: #fff; border: 1px solid #ddd; border-radius: 8px; padding: 10px; }
+    .metrics div { margin: 4px 0; }
+    .divider { height: 1px; background: #ddd; margin: 10px 0; }
   </style>
 </head>
 <body>
@@ -18,16 +26,20 @@
 
   <div class="block">
     <h3>Загрузить файл</h3>
-    <input type="file" id="fileInput" />
-    <button type="button" onclick="uploadFile()">Загрузить</button>
-    <p id="uploadStatus"></p>
+    <div class="row">
+      <input type="file" id="fileInput" />
+      <button type="button" onclick="uploadFile()">Загрузить</button>
+    </div>
+    <p id="uploadStatus" class="muted"></p>
   </div>
 
   <hr>
 
   <div class="block">
     <h3>Список загруженных документов</h3>
-    <button type="button" onclick="loadDocuments()">Показать документы</button>
+    <div class="row">
+      <button type="button" onclick="loadDocuments()">Показать документы</button>
+    </div>
     <div id="docsList"></div>
   </div>
 
@@ -35,24 +47,52 @@
 
   <div class="block">
     <h3>Анализ документа</h3>
-    <input type="number" id="docIdInput" placeholder="ID документа" />
-    <button type="button" onclick="analyzeDocument()">Анализировать</button>
+
+    <div class="row">
+      <input type="number" id="docIdInput" placeholder="ID документа" />
+      <button type="button" onclick="analyzeDocument()">Анализировать</button>
+      <button type="button" onclick="loadReports()">Показать отчёты (история)</button>
+      <button type="button" onclick="downloadWordReport()">Скачать последний отчёт в Word</button>
+    </div>
+
+    <p id="actionStatus" class="muted"></p>
 
     <h4>Результат анализа (метрики)</h4>
-    <pre id="analysisResult"></pre>
+    <div class="metrics" id="analysisMetrics">
+      <div><b>total_words:</b> <span id="m_total_words">—</span></div>
+      <div><b>unique_words:</b> <span id="m_unique_words">—</span></div>
+      <div><b>uniqueness:</b> <span id="m_uniqueness">—</span></div>
+      <div><b>embedding_dim:</b> <span id="m_embedding_dim">—</span></div>
+    </div>
 
     <h4>Отчёт LLM</h4>
-    <pre id="llmReport"></pre>
+    <pre id="llmReport">—</pre>
 
-    <button type="button" onclick="downloadWordReport()">Скачать отчёт в Word</button>
-    <p id="downloadStatus"></p>
+    <div class="divider"></div>
+
+    <h3>История отчётов</h3>
+    <div id="reportsList" class="muted">Нажми «Показать отчёты (история)»</div>
   </div>
 
   <script>
-    // Если nginx проксирует backend как /api — оставь так.
-    // Если ходишь напрямую на порт 8000, замени на:
+    // Если nginx проксирует backend на /api — оставь так.
+    // Если backend доступен напрямую на :8000 — замени на:
     // const API_BASE = `${window.location.protocol}//${window.location.hostname}:8000`;
     const API_BASE = `${window.location.protocol}//${window.location.hostname}/api`;
+
+    function setStatus(elId, text, cls = "muted") {
+      const el = document.getElementById(elId);
+      if (!el) return;
+      el.className = cls;
+      el.innerText = text;
+    }
+
+    function setMetrics(a) {
+      document.getElementById("m_total_words").innerText = a?.total_words ?? "—";
+      document.getElementById("m_unique_words").innerText = a?.unique_words ?? "—";
+      document.getElementById("m_uniqueness").innerText = a?.uniqueness ?? "—";
+      document.getElementById("m_embedding_dim").innerText = a?.embedding_dim ?? "—";
+    }
 
     async function uploadFile() {
       const file = document.getElementById("fileInput").files[0];
@@ -61,7 +101,7 @@
         return;
       }
 
-      document.getElementById("uploadStatus").innerText = "Загрузка...";
+      setStatus("uploadStatus", "Загрузка...", "muted");
 
       const formData = new FormData();
       formData.append("file", file);
@@ -73,21 +113,18 @@
 
       if (!res.ok) {
         const text = await res.text();
-        document.getElementById("uploadStatus").innerText =
-          `Ошибка загрузки (HTTP ${res.status}): ${text.slice(0, 200)}`;
+        setStatus("uploadStatus", `Ошибка загрузки (HTTP ${res.status}): ${text.slice(0, 200)}`, "error");
         return;
       }
 
       const data = await res.json();
 
       if (data.id) {
-        document.getElementById("uploadStatus").innerText =
-          "Файл загружен! ID: " + data.id;
+        setStatus("uploadStatus", `Файл загружен! ID: ${data.id}`, "ok");
         document.getElementById("docIdInput").value = data.id;
         loadDocuments().catch(() => {});
       } else {
-        document.getElementById("uploadStatus").innerText =
-          "Ошибка: " + JSON.stringify(data);
+        setStatus("uploadStatus", "Ошибка: " + JSON.stringify(data), "error");
       }
     }
 
@@ -99,14 +136,18 @@
 
       if (!res.ok) {
         const text = await res.text();
-        container.innerText =
-          `Ошибка загрузки списка (HTTP ${res.status}): ${text.slice(0, 200)}`;
+        container.innerText = `Ошибка загрузки списка (HTTP ${res.status}): ${text.slice(0, 200)}`;
         return;
       }
 
       const docs = await res.json();
 
       container.innerHTML = "";
+
+      if (!Array.isArray(docs) || docs.length === 0) {
+        container.innerText = "Документов пока нет.";
+        return;
+      }
 
       docs.forEach(doc => {
         const div = document.createElement("div");
@@ -117,19 +158,30 @@
           <b>Имя:</b> ${doc.filename}<br>
           <b>Размер:</b> ${Math.round(doc.size / 1024)} KB<br>
           <b>Дата:</b> ${new Date(doc.uploaded_at).toLocaleString()}<br>
-          <button type="button" onclick="setDocId(${doc.id})">Выбрать</button>
+          <div class="row" style="margin-top:8px;">
+            <button type="button" onclick="setDocId(${doc.id})">Выбрать</button>
+            <button type="button" onclick="quickAnalyze(${doc.id})">Анализировать</button>
+            <button type="button" onclick="quickReports(${doc.id})">Отчёты</button>
+          </div>
         `;
 
         container.appendChild(div);
       });
-
-      if (docs.length === 0) {
-        container.innerText = "Документов пока нет.";
-      }
     }
 
     function setDocId(id) {
       document.getElementById("docIdInput").value = id;
+      setStatus("actionStatus", `Выбран документ ID: ${id}`, "muted");
+    }
+
+    async function quickAnalyze(id) {
+      setDocId(id);
+      await analyzeDocument();
+    }
+
+    async function quickReports(id) {
+      setDocId(id);
+      await loadReports();
     }
 
     async function analyzeDocument() {
@@ -139,36 +191,83 @@
         return;
       }
 
-      // Очистим/покажем статус
-      const analysisEl = document.getElementById("analysisResult");
-      const llmEl = document.getElementById("llmReport");
+      setStatus("actionStatus", "Анализируем... (может занять до минуты)", "muted");
+      setMetrics(null);
+      document.getElementById("llmReport").innerText = "Генерируем отчёт LLM...";
 
-      analysisEl.innerText = "Анализируем...";
-      llmEl.innerText = "Генерируем отчёт LLM...";
-
-      const res = await fetch(`${API_BASE}/analyze_document/${id}`, {
-        method: "POST"
-      });
+      const res = await fetch(`${API_BASE}/analyze_document/${id}`, { method: "POST" });
 
       if (!res.ok) {
         const text = await res.text();
-        analysisEl.innerText = `Ошибка анализа (HTTP ${res.status}): ${text.slice(0, 500)}`;
-        llmEl.innerText = "";
+        setStatus("actionStatus", `Ошибка анализа (HTTP ${res.status}): ${text.slice(0, 500)}`, "error");
+        document.getElementById("llmReport").innerText = "—";
         return;
       }
 
       const data = await res.json();
 
-      // 1) Метрики (только 4 поля)
-      const a = data.analysis || {};
-      analysisEl.innerText =
-        `total_words: ${a.total_words ?? "-"}\n` +
-        `unique_words: ${a.unique_words ?? "-"}\n` +
-        `uniqueness: ${a.uniqueness ?? "-"}\n` +
-        `embedding_dim: ${a.embedding_dim ?? "-"}`;
+      // Метрики (только 4 поля)
+      setMetrics(data.analysis || null);
 
-      // 2) Отчёт LLM (текст)
-      llmEl.innerText = data.llm_report || data.llmReport || "Отчёт LLM отсутствует.";
+      // Отчёт LLM
+      document.getElementById("llmReport").innerText =
+        data.llm_report || data.llmReport || "Отчёт LLM отсутствует.";
+
+      setStatus("actionStatus", "Готово. Результат сохранён в БД.", "ok");
+
+      // Обновим историю автоматически
+      loadReports().catch(() => {});
+    }
+
+    // История отчётов: нужен backend endpoint GET /analysis_reports/{doc_id}
+    async function loadReports() {
+      const id = document.getElementById("docIdInput").value;
+      if (!id) {
+        alert("Введите ID документа");
+        return;
+      }
+
+      const container = document.getElementById("reportsList");
+      container.innerText = "Загружаем историю отчётов...";
+
+      const res = await fetch(`${API_BASE}/analysis_reports/${id}`);
+
+      if (!res.ok) {
+        const text = await res.text();
+        container.innerText = `Ошибка загрузки отчётов (HTTP ${res.status}): ${text.slice(0, 300)}`;
+        return;
+      }
+
+      const reports = await res.json();
+
+      container.innerHTML = "";
+
+      if (!Array.isArray(reports) || reports.length === 0) {
+        container.innerText = "Отчётов пока нет. Нажми «Анализировать» чтобы создать отчёт.";
+        return;
+      }
+
+      reports.forEach(r => {
+        const div = document.createElement("div");
+        div.className = "report-item";
+
+        const created = r.created_at ? new Date(r.created_at).toLocaleString() : "—";
+        const a = r.analysis || {};
+
+        div.innerHTML = `
+          <div class="muted"><b>ID отчёта:</b> ${r.id ?? "—"} • <b>Дата:</b> ${created}</div>
+          <div class="metrics" style="margin-top:8px;">
+            <div><b>total_words:</b> ${a.total_words ?? "—"}</div>
+            <div><b>unique_words:</b> ${a.unique_words ?? "—"}</div>
+            <div><b>uniqueness:</b> ${a.uniqueness ?? "—"}</div>
+            <div><b>embedding_dim:</b> ${a.embedding_dim ?? "—"}</div>
+          </div>
+          <div style="margin-top:10px;"><b>Отчёт LLM:</b></div>
+          <pre style="margin-top:6px;">${escapeHtml(r.llm_report || "—")}</pre>
+        `;
+
+        container.appendChild(div);
+      });
     }
 
     function downloadWordReport() {
@@ -177,12 +276,18 @@
         alert("Введите ID документа");
         return;
       }
-
-      const statusEl = document.getElementById("downloadStatus");
-      if (statusEl) statusEl.innerText = "";
-
-      // Скачивание DOCX через открытие ссылки
+      // Скачивает последний отчёт (как у тебя сделано в backend /report_word/{doc_id})
       window.location.href = `${API_BASE}/report_word/${id}`;
+    }
+
+    // чтобы отчёт не ломал HTML (если в тексте есть < > &)
+    function escapeHtml(str) {
+      return String(str)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
     }
 
     // Автозагрузка списка при открытии страницы

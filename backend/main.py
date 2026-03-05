@@ -263,3 +263,32 @@ def report_word(doc_id: int):
         media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
         headers={"Content-Disposition": f'attachment; filename="{out_name}"'}
     )
+@app.get("/analysis_reports/{doc_id}")
+def get_reports(doc_id: int):
+    """Получить все сохранённые отчёты по документу"""
+
+    db = SessionLocal()
+
+    results = (
+        db.query(AnalysisResult)
+        .filter(AnalysisResult.doc_id == doc_id)
+        .order_by(AnalysisResult.created_at.desc())
+        .all()
+    )
+
+    db.close()
+
+    return [
+        {
+            "id": r.id,
+            "created_at": r.created_at.isoformat(),
+            "llm_report": r.llm_report,
+            "analysis": {
+                "total_words": r.analysis_json.get("total_words") if r.analysis_json else None,
+                "unique_words": r.analysis_json.get("unique_words") if r.analysis_json else None,
+                "uniqueness": r.analysis_json.get("uniqueness") if r.analysis_json else None,
+                "embedding_dim": r.analysis_json.get("embedding_dim") if r.analysis_json else None
+            }
+        }
+        for r in results
+    ]
