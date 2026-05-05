@@ -6,6 +6,7 @@ import bell from "../../assets/bell.png";
 import avatar from "../../assets/ava.png";
 import support from "../../assets/help.png";
 import clip from "../../assets/clip.png";
+import buildingImage from "../../assets/корпус.png";
 
 import { Link } from "react-router-dom";
 
@@ -87,7 +88,9 @@ export default function StudentHome() {
           </button>
         </section>
 
-        <section className="building"></section>
+        <section className="building">
+          <img src={buildingImage} alt="Корпус НГТУ" />
+        </section>
 
         <section className="notifications">
           <h2>Уведомления</h2>
@@ -110,15 +113,16 @@ export default function StudentHome() {
       <section className="cards">
         <Link to="/cabinet">
   <Card
+    icon="👤"
     title="Личный кабинет"
     text="Посмотреть ваши данные и настройки системы"
   />
 </Link>
-        <Link to="/work"><Card title="Моя работа" text="Продолжить работу над ВКР" /></Link>
-        <Link to="/templates"><Card title="Шаблоны ГОСТ" text="Скачать актуальные шаблоны" /></Link>
-        <Card title="Преподаватели" text="Посмотреть данные о преподавателях" />
-        <Card title="Актуальные темы ВКР" text="Посмотреть актуальные темы ВКР" />
-        <Card title="Архив ВКР" text="Посмотреть работы выпускников прошлых лет" />
+        <Link to="/work"><Card icon="📂" title="Моя работа" text="Продолжить работу над ВКР" /></Link>
+        <Link to="/templates"><Card icon="📄" title="Шаблоны ГОСТ" text="Скачать актуальные шаблоны" /></Link>
+        <Card icon="👥" title="Преподаватели" text="Посмотреть данные о преподавателях" />
+        <Card icon="📈" title="Актуальные темы ВКР" text="Посмотреть актуальные темы ВКР" />
+        <Card icon="🗄️" title="Архив ВКР" text="Посмотреть работы выпускников прошлых лет" />
       </section>
 
       <footer className="footer">
