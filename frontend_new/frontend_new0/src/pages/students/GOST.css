@@ -1,0 +1,136 @@
+* {
+  box-sizing: border-box;
+}
+
+body {
+  font-family: Georgia, "Times New Roman", serif;
+  margin: 0;
+}
+
+.gost-templates {
+  width: 1200px;
+  margin: 25px auto;
+  background: white;
+  padding: 30px;
+}
+
+.header {
+  height: 66px;
+  background: #f0eeee;
+  border-radius: 20px;
+  display: flex;
+  align-items: center;
+  padding: 0 28px;
+  gap: 20px;
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-right: auto;
+}
+
+.logo-box {
+  width: 36px;
+  height: 36px;
+  border: 3px solid #008a55;
+  color: #e7004c;
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.search {
+  width: 420px;
+  height: 34px;
+  background: #f7f7f7;
+  border: 1px solid #cfcfcf;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+}
+
+.search input {
+  border: none;
+  outline: none;
+  background: transparent;
+  width: 100%;
+}
+
+.profile {
+  min-width: 160px;
+  height: 58px;
+  border-radius: 30px;
+  border: 2px solid #111;
+  background: #91d0b8;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 14px;
+}
+
+.avatar {
+  font-size: 34px;
+}
+
+.main-content {
+  margin-top: 50px;
+}
+
+h1 {
+  font-size: 32px;
+  color: #00834f;
+}
+
+.templates-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 22px;
+  margin-top: 40px;
+}
+
+.template-card {
+  background: #f7f7f7;
+  padding: 20px;
+  border-radius: 15px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  text-align: center;
+}
+
+.template-title {
+  font-size: 18px;
+  font-weight: bold;
+  color: #00834f;
+}
+
+.download-btn {
+  margin-top: 15px;
+  padding: 12px 25px;
+  background-color: #00834f;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: bold;
+}
+
+.download-btn:hover {
+  background-color: #006e39;
+}
+
+.footer {
+  height: 28px;
+  background: #f1f1f1;
+  margin-top: 40px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-size: 12px;
+}
+
+.footer div {
+  color: #00834f;
+}
