@@ -1,0 +1,5 @@
+.work-page { max-width: 980px; margin: 24px auto; padding: 0 16px; font-family: Arial, sans-serif; }
+.card { background:#fff; border:1px solid #ddd; border-radius:10px; padding:14px; margin-bottom:16px; }
+button { margin-right:8px; margin-top:8px; }
+pre { background:#f7f7f7; padding:10px; border-radius:8px; white-space:pre-wrap; }
+ul { padding-left: 20px; }
