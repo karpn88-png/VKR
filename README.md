@@ -60,3 +60,31 @@ After docker-compose build:
 ## Notes
 - Sentence-Transformers and some transformer models are heavy; if you plan to run models locally, prefer a machine with >=8GB RAM or use an external API.
 - The AI module uses `sentence-transformers` if available; otherwise it falls back to a light heuristic.
+
+## SQL bundle import (new database scripts)
+
+Added SQL scripts are stored in `db/sql` and mounted into Postgres as `/docker-entrypoint-initdb.d`.
+
+Execution order:
+1. `01_extensions.sql`
+2. `02_enum.sql`
+3. `03_tables.sql`
+4. `04_fk.sql`
+5. `05_index.sql`
+6. `06_trigers.sql`
+7. `07_datas.sql`
+
+Important behavior:
+- These scripts run automatically **only when Postgres initializes a fresh data directory** (new empty volume).
+- Existing database files/data are preserved because the current named volume `postgres_data` is kept.
+
+If you need to apply scripts to an existing running database manually:
+```bash
+docker compose exec -T db psql -U vkr -d vkrdb -f /docker-entrypoint-initdb.d/01_extensions.sql
+docker compose exec -T db psql -U vkr -d vkrdb -f /docker-entrypoint-initdb.d/02_enum.sql
+docker compose exec -T db psql -U vkr -d vkrdb -f /docker-entrypoint-initdb.d/03_tables.sql
+docker compose exec -T db psql -U vkr -d vkrdb -f /docker-entrypoint-initdb.d/04_fk.sql
+docker compose exec -T db psql -U vkr -d vkrdb -f /docker-entrypoint-initdb.d/05_index.sql
+docker compose exec -T db psql -U vkr -d vkrdb -f /docker-entrypoint-initdb.d/06_trigers.sql
+docker compose exec -T db psql -U vkr -d vkrdb -f /docker-entrypoint-initdb.d/07_datas.sql
+```
