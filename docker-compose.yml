@@ -42,7 +42,7 @@ services:
     build: ./frontend_new2/frontend/app
     container_name: frontend
     expose:
-      - "3000"
+      - "80"
     restart: unless-stopped
   nginx:
     image: nginx:alpine
