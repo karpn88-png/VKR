@@ -10,6 +10,39 @@ import send from "../../assets/send.png";
 
 import { Link } from "react-router-dom";
 
+const API_BASE = import.meta.env.VITE_API_BASE ?? "/api";
+const SUPPORTED_WORK_EXTENSIONS = [".docx", ".doc", ".pdf", ".rtf", ".txt"];
+
+async function readApiResponse(response) {
+  const text = await response.text();
+  let data;
+
+  try {
+    data = text ? JSON.parse(text) : null;
+  } catch {
+    data = text;
+  }
+
+  if (!response.ok) {
+    const message =
+      data?.detail ||
+      data?.error ||
+      (typeof data === "string" && data) ||
+      `HTTP ${response.status}`;
+    throw new Error(message);
+  }
+
+  if (data?.error) {
+    throw new Error(data.details ? `${data.error}: ${data.details}` : data.error);
+  }
+
+  return data;
+}
+
+function isSupportedWorkFile(file) {
+  const name = file?.name?.toLowerCase() ?? "";
+  return SUPPORTED_WORK_EXTENSIONS.some((extension) => name.endsWith(extension));
+}
 
 export default function StudentWork() {
   const [profileOpen, setProfileOpen] = useState(false);
@@ -21,10 +54,22 @@ export default function StudentWork() {
   const [recipientOpen, setRecipientOpen] = useState(false);
   const [selectedRecipient, setSelectedRecipient] = useState(null);
   const [submitModalOpen, setSubmitModalOpen] = useState(false);
+  const [workFile, setWorkFile] = useState(null);
+  const [workDocId, setWorkDocId] = useState(null);
+  const [aiStatus, setAiStatus] = useState("Выберите файл работы для проверки.");
+  const [aiStatusKind, setAiStatusKind] = useState("muted");
+  const [aiAnalysis, setAiAnalysis] = useState(null);
+  const [aiReportReady, setAiReportReady] = useState(false);
+  const [isUploadingWork, setIsUploadingWork] = useState(false);
+  const [isCheckingWork, setIsCheckingWork] = useState(false);
+  const [isDraggingWork, setIsDraggingWork] = useState(false);
 
   const recipients = [
     { id: 1, name: "Герасимов А. К.", role: "Руководитель ВКР" },
   ];
+
+  const aiBusy = isUploadingWork || isCheckingWork;
+  const canDownloadReport = Boolean(workDocId && aiReportReady && !aiBusy);
 
   const sendMessage = () => {
   if (!message.trim() || !selectedRecipient) return;
@@ -47,6 +92,100 @@ time: new Date().toLocaleTimeString([], {
   ]);
 
   setMessage("");
+};
+
+const uploadWorkFile = async (file) => {
+  if (!file) {
+    setAiStatus("Выберите файл работы.");
+    setAiStatusKind("error");
+    return null;
+  }
+
+  if (!isSupportedWorkFile(file)) {
+    setAiStatus("Поддерживаются файлы .docx, .doc, .pdf, .rtf и .txt.");
+    setAiStatusKind("error");
+    return null;
+  }
+
+  setIsUploadingWork(true);
+  setAiReportReady(false);
+  setAiAnalysis(null);
+  setAiStatus("Загружаем файл работы...");
+  setAiStatusKind("info");
+
+  try {
+    const formData = new FormData();
+    formData.append("file", file);
+
+    const response = await fetch(`${API_BASE}/upload`, {
+      method: "POST",
+      body: formData,
+    });
+    const data = await readApiResponse(response);
+
+    setWorkDocId(data.id);
+    setAiStatus(`Файл "${data.filename}" загружен. Можно запускать проверку.`);
+    setAiStatusKind("success");
+    return data.id;
+  } catch (error) {
+    setWorkDocId(null);
+    setAiStatus(`Не удалось загрузить файл: ${error.message}`);
+    setAiStatusKind("error");
+    return null;
+  } finally {
+    setIsUploadingWork(false);
+  }
+};
+
+const handleWorkFile = async (file) => {
+  if (!file) return;
+  setWorkFile(file);
+  await uploadWorkFile(file);
+};
+
+const startAiCheck = async () => {
+  if (aiBusy) return;
+
+  let docId = workDocId;
+  if (!docId) {
+    docId = await uploadWorkFile(workFile);
+  }
+
+  if (!docId) return;
+
+  setIsCheckingWork(true);
+  setAiReportReady(false);
+  setAiStatus("Проверяем работу AI-модулем и формируем LLM-отчёт...");
+  setAiStatusKind("info");
+
+  try {
+    const response = await fetch(`${API_BASE}/analyze_document/${docId}`, {
+      method: "POST",
+    });
+    const data = await readApiResponse(response);
+
+    setAiAnalysis(data.analysis ?? null);
+    setAiReportReady(true);
+    setAiStatus("Проверка завершена. Отчёт готов к скачиванию.");
+    setAiStatusKind("success");
+  } catch (error) {
+    setAiAnalysis(null);
+    setAiReportReady(false);
+    setAiStatus(`Проверка не выполнена: ${error.message}`);
+    setAiStatusKind("error");
+  } finally {
+    setIsCheckingWork(false);
+  }
+};
+
+const downloadAiReport = () => {
+  if (!canDownloadReport) {
+    setAiStatus("Сначала загрузите файл и завершите проверку.");
+    setAiStatusKind("error");
+    return;
+  }
+
+  window.location.href = `${API_BASE}/report_word/${workDocId}`;
 };
 
   return (
@@ -202,8 +341,31 @@ time: new Date().toLocaleTimeString([], {
 
   <h3>Загрузите файл работы</h3>
 
-  <label className="ai-upload-box">
-    <input type="file" hidden />
+  <label
+    className={`ai-upload-box ${isDraggingWork ? "dragging" : ""} ${aiBusy ? "disabled" : ""}`}
+    onDragOver={(event) => {
+      event.preventDefault();
+      if (!aiBusy) setIsDraggingWork(true);
+    }}
+    onDragLeave={() => setIsDraggingWork(false)}
+    onDrop={(event) => {
+      event.preventDefault();
+      setIsDraggingWork(false);
+      if (!aiBusy) {
+        handleWorkFile(event.dataTransfer.files?.[0] ?? null);
+      }
+    }}
+  >
+    <input
+      type="file"
+      accept=".docx,.doc,.pdf,.rtf,.txt"
+      disabled={aiBusy}
+      hidden
+      onChange={(event) => {
+        handleWorkFile(event.target.files?.[0] ?? null);
+        event.target.value = "";
+      }}
+    />
 
     <b>Перетащите или нажмите для выбора файла в эту область</b>
     <span>Поддерживаемые форматы: .docx, .doc, .pdf, .rtf</span>
@@ -211,13 +373,36 @@ time: new Date().toLocaleTimeString([], {
     <img src={clip} alt="file" className="clip-icon" />
   </label>
 
+  <div className="ai-file-name">
+    {workFile ? workFile.name : "Файл не выбран"}
+  </div>
+
+  <div className={`ai-status ${aiStatusKind}`}>{aiStatus}</div>
+
+  {aiAnalysis && (
+    <div className="ai-metrics">
+      <span>Слов: {aiAnalysis.total_words ?? "—"}</span>
+      <span>Уникальность: {aiAnalysis.uniqueness ?? "—"}%</span>
+    </div>
+  )}
+
   <div className="ai-actions">
-    <button className="download-checked-btn" type="button">
+    <button
+      className="download-checked-btn"
+      type="button"
+      disabled={!canDownloadReport}
+      onClick={downloadAiReport}
+    >
       Скачать проверенный файл
     </button>
 
-    <button className="start-check-btn" type="button">
-      Запустить проверку
+    <button
+      className="start-check-btn"
+      type="button"
+      disabled={aiBusy || !workFile || !isSupportedWorkFile(workFile)}
+      onClick={startAiCheck}
+    >
+      {isCheckingWork ? "Проверяем..." : "Запустить проверку"}
     </button>
   </div>
       </section>

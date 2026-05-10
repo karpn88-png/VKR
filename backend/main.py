@@ -2,10 +2,11 @@ import os
 import io
 import json
 import datetime
+import re
 from io import BytesIO
 
 import requests
-from fastapi import FastAPI, UploadFile, File
+from fastapi import FastAPI, HTTPException, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 
@@ -60,6 +61,45 @@ class AnalysisResult(Base):
 
 
 Base.metadata.create_all(bind=engine)
+
+
+def extract_rtf_text(content: bytes) -> str:
+    """Best-effort RTF to plain text extraction without external binaries."""
+    raw = content.decode("utf-8", errors="ignore")
+    if not raw.strip():
+        raw = content.decode("cp1251", errors="ignore")
+
+    def hex_to_char(match):
+        return bytes.fromhex(match.group(1)).decode("cp1251", errors="ignore")
+
+    def unicode_to_char(match):
+        code = int(match.group(1))
+        if code < 0:
+            code += 65536
+        return chr(code)
+
+    text = re.sub(r"\\'([0-9a-fA-F]{2})", hex_to_char, raw)
+    text = re.sub(r"\\u(-?\d+).", unicode_to_char, text)
+    text = re.sub(r"\\par[d]?", "\n", text)
+    text = re.sub(r"\\[a-zA-Z]+-?\d* ?", " ", text)
+    text = re.sub(r"\\[^a-zA-Z0-9]", " ", text)
+    text = text.replace("{", " ").replace("}", " ")
+    return re.sub(r"\s+", " ", text).strip()
+
+
+def extract_legacy_doc_text(content: bytes) -> str:
+    """Best-effort extraction for legacy .doc when no office converter exists."""
+    decoded = content.decode("cp1251", errors="ignore")
+    decoded = re.sub(r"[^\w\s.,:;!?()\-—«»\"'№%/\\]+", " ", decoded, flags=re.UNICODE)
+    text = re.sub(r"\s+", " ", decoded).strip()
+
+    if len(text) < 100:
+        raise HTTPException(
+            status_code=400,
+            detail="Не удалось извлечь текст из .doc. Сохраните работу как .docx или .pdf и повторите проверку.",
+        )
+
+    return text
 
 # ============================================================
 # FASTAPI APP
@@ -120,7 +160,7 @@ def get_document(doc_id: int):
     db.close()
 
     if not doc:
-        return {"error": "not found"}
+        raise HTTPException(status_code=404, detail="Document not found")
 
     return {
         "id": doc.id,
@@ -138,7 +178,7 @@ def analyze_document(doc_id: int):
     db.close()
 
     if not doc:
-        return {"error": "Document not found"}
+        raise HTTPException(status_code=404, detail="Document not found")
 
     filename = doc.filename.lower()
 
@@ -158,8 +198,20 @@ def analyze_document(doc_id: int):
         pdf = PyPDF2.PdfReader(io.BytesIO(doc.content))
         text = "\n".join(page.extract_text() or "" for page in pdf.pages)
 
+    elif filename.endswith(".rtf"):
+        text = extract_rtf_text(doc.content)
+
+    elif filename.endswith(".doc"):
+        text = extract_legacy_doc_text(doc.content)
+
     else:
-        return {"error": f"Unsupported file format: {filename}"}
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unsupported file format: {filename}. Use .docx, .doc, .pdf, .rtf or .txt.",
+        )
+
+    if not text.strip():
+        raise HTTPException(status_code=400, detail="Не удалось извлечь текст из файла.")
 
     # ============================================================
     # ОТПРАВКА В AI-МОДУЛЬ
@@ -170,10 +222,7 @@ def analyze_document(doc_id: int):
         r.raise_for_status()
         analysis = r.json()
     except Exception as e:
-        return {
-            "error": "AI module unavailable",
-            "details": str(e)
-        }
+        raise HTTPException(status_code=503, detail=f"AI module unavailable: {e}")
 
     # Оставляем только нужные метрики (не возвращаем/не сохраняем полный JSON)
     brief = {
@@ -223,7 +272,7 @@ def report_word(doc_id: int):
     doc = db.query(Document).filter(Document.id == doc_id).first()
     if not doc:
         db.close()
-        return {"error": "Document not found"}
+        raise HTTPException(status_code=404, detail="Document not found")
 
     result = (
         db.query(AnalysisResult)
@@ -234,7 +283,7 @@ def report_word(doc_id: int):
     db.close()
 
     if not result:
-        return {"error": "No analysis found for this document yet. Run analyze first."}
+        raise HTTPException(status_code=404, detail="No analysis found for this document yet. Run analyze first.")
 
     d = DocxDocument()
     d.add_heading("Отчёт анализа ВКР", level=1)
