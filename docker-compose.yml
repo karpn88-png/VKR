@@ -21,6 +21,13 @@ services:
     container_name: ai_module
     ports:
       - "5000:5000"
+    environment:
+      ENABLE_REMOTE_MODEL_DOWNLOAD: "0"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:5000/health', timeout=2)"]
+      interval: 10s
+      timeout: 3s
+      retries: 12
     restart: unless-stopped
 
   backend:
@@ -29,8 +36,10 @@ services:
     expose:
       - "8000"
     depends_on:
-      - ai
-      - db
+      ai:
+        condition: service_healthy
+      db:
+        condition: service_started
     restart: unless-stopped
     environment:
       AI_URL: "http://ai:5000"

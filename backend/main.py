@@ -3,6 +3,7 @@ import io
 import json
 import datetime
 import re
+import time
 from io import BytesIO
 
 import requests
@@ -100,6 +101,29 @@ def extract_legacy_doc_text(content: bytes) -> str:
         )
 
     return text
+
+
+def run_ai_analysis(text: str) -> dict:
+    if not AI_URL:
+        raise HTTPException(status_code=503, detail="AI_URL is not configured")
+
+    attempts = int(os.getenv("AI_REQUEST_ATTEMPTS", "6"))
+    last_error = None
+
+    for attempt in range(1, attempts + 1):
+        try:
+            response = requests.post(f"{AI_URL}/analyze", json={"text": text}, timeout=(5, 120))
+            response.raise_for_status()
+            return response.json()
+        except requests.RequestException as e:
+            last_error = e
+            if attempt < attempts:
+                time.sleep(min(2 * attempt, 10))
+
+    raise HTTPException(
+        status_code=503,
+        detail=f"AI module unavailable after {attempts} attempts: {last_error}",
+    )
 
 # ============================================================
 # FASTAPI APP
@@ -217,12 +241,7 @@ def analyze_document(doc_id: int):
     # ОТПРАВКА В AI-МОДУЛЬ
     # ============================================================
 
-    try:
-        r = requests.post(f"{AI_URL}/analyze", json={"text": text}, timeout=120)
-        r.raise_for_status()
-        analysis = r.json()
-    except Exception as e:
-        raise HTTPException(status_code=503, detail=f"AI module unavailable: {e}")
+    analysis = run_ai_analysis(text)
 
     # Оставляем только нужные метрики (не возвращаем/не сохраняем полный JSON)
     brief = {
