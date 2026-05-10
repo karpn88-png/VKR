@@ -21,7 +21,7 @@ build_images:
   script:
     - docker build -t vkr_ai ./ai_module
     - docker build -t vkr_backend ./backend
-    - docker build -t vkr_frontend ./frontend
+    - docker build -t vkr_frontend ./frontend_new2/frontend/app
 
 # === ПРОВЕРКА РАБОТОСПОСОБНОСТИ ===
 
@@ -32,7 +32,7 @@ integration_test:
     - docker-compose up --build -d
     - sleep 8
     - curl -f http://localhost:8000 || (echo "Backend failed" && exit 1)
-    - curl -f http://localhost:3000 || (echo "Frontend failed" && exit 1)
+    - curl -f http://localhost || (echo "Frontend failed" && exit 1)
     - curl -X POST http://localhost:5000/analyze -H "Content-Type: application/json" -d '{"text":"test"}'
     - docker-compose down
 

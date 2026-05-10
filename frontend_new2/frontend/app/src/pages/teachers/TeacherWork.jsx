@@ -5,7 +5,6 @@ import bell from "../../assets/bell.png";
 import avatar from "../../assets/ava.png";
 import clip from "../../assets/clip.png";
 import support from "../../assets/help.png";
-import send from "../../assets/send.png";
 
 
 import { Link } from "react-router-dom";
@@ -16,8 +15,6 @@ export default function TeacherWork() {
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [supportOpen, setSupportOpen] = useState(false);
 
-  const [message, setMessage] = useState("");
-  const [messages, setMessages] = useState([]);
   const [recipientOpen, setRecipientOpen] = useState(false);
   const [selectedRecipient, setSelectedRecipient] = useState(null);
   const [submitModalOpen, setSubmitModalOpen] = useState(false);
@@ -25,29 +22,6 @@ export default function TeacherWork() {
   const recipients = [
     { id: 1, name: "Герасимов А. К.", role: "Руководитель ВКР" },
   ];
-
-  const sendMessage = () => {
-  if (!message.trim() || !selectedRecipient) return;
-
-  setMessages([
-    ...messages,
-    {
-      id: Date.now(),
-      text: message,
-      recipient: selectedRecipient.name,
-      status: "не прочитано",
-
-      date: new Date().toLocaleDateString("ru-RU"),
-
-time: new Date().toLocaleTimeString([], {
-  hour: "2-digit",
-  minute: "2-digit",
-}),
-    },
-  ]);
-
-  setMessage("");
-};
 
   return (
     <div className="page">

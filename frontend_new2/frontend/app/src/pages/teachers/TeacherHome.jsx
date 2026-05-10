@@ -23,8 +23,6 @@ export default function TeacherHome() {
     ? notifications
     : notifications.filter((item) => item.unread);
 
-  const [fileName, setFileName] = useState("");
-
   return (
     <div className="page">
       <header className="header">

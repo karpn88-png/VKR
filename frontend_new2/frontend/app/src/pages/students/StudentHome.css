@@ -521,7 +521,7 @@ button, input, textarea {
   min-height: 100vh;
   margin: 0;
   padding: 20px;
-  background: url('./assets/corpus.png') no-repeat center center;
+  background: url('../../assets/corpus.png') no-repeat center center;
   background-size: cover;
 }
 

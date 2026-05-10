@@ -37,9 +37,9 @@ AI analyzer endpoint: POST http://localhost:5000/analyze
 
 ### Frontend (development)
 ```bash
-cd frontend
+cd frontend_new2/frontend/app
 npm install
-npm run dev    # starts Vite dev server on port 3000
+npm run dev -- --host 0.0.0.0 --port 3000
 ```
 
 ### Full run with Docker (recommended)
@@ -48,7 +48,7 @@ docker-compose up --build
 ```
 
 After docker-compose build:
-- Frontend (built + nginx): http://localhost:3000
+- Frontend (via nginx): http://localhost
 - Backend (FastAPI): http://localhost:8000
 - AI module: http://localhost:5000
 
