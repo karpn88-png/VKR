@@ -150,6 +150,16 @@ a {
   cursor: pointer;
 }
 
+.ai-upload-box.dragging {
+  background: #e7f4ef;
+  border-color: #007a49;
+}
+
+.ai-upload-box.disabled {
+  cursor: wait;
+  opacity: 0.72;
+}
+
 .ai-upload-box b {
   color: #222;
 
@@ -162,6 +172,48 @@ a {
   color: #777;
 
   font-size: 11px;
+}
+
+.ai-file-name {
+  margin-top: 10px;
+  color: #225142;
+  font-size: 12px;
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ai-status {
+  min-height: 34px;
+  margin-top: 8px;
+  font-size: 12px;
+  line-height: 1.25;
+}
+
+.ai-status.muted {
+  color: #616161;
+}
+
+.ai-status.info {
+  color: #285f91;
+}
+
+.ai-status.success {
+  color: #007a49;
+}
+
+.ai-status.error {
+  color: #b0273f;
+}
+
+.ai-metrics {
+  display: flex;
+  gap: 10px;
+  margin-top: 4px;
+  color: #1d4f40;
+  font-size: 12px;
+  font-weight: 700;
 }
 
 .upload-icon {
@@ -184,7 +236,7 @@ a {
 }
 
 .ai-actions {
-  margin-top: 45px;
+  margin-top: 18px;
 
   display: flex;
   justify-content: space-between;
@@ -218,6 +270,12 @@ a {
   color: white;
 
   border: none;
+}
+
+.download-checked-btn:disabled,
+.start-check-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
 }
 
 .chat-panel {
@@ -490,6 +548,19 @@ a {
   box-shadow: 0 10px 30px rgba(0,0,0,0.25);
 
   position: relative;
+}
+
+.overlay {
+  position: fixed;
+  inset: 0;
+
+  background: rgba(0,0,0,0.45);
+
+  display: flex;
+  justify-content: center;
+  align-items: center;
+
+  z-index: 1000;
 }
 
 .submit-modal h2 {
