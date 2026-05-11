@@ -263,7 +263,7 @@ const downloadAiReport = () => {
 };
 
   return (
-    <div className="page">
+    <div className="page student-work-page">
       {/* ШАПКА */}
       <header className="header">
         <div className="logo">
@@ -311,6 +311,7 @@ const downloadAiReport = () => {
       {/* СЕРЕДИНА */}
       <main className="cabinet-main">
       <section className="work-panel">
+    <div className="work-panel-header">
     <div className="work-title-block">
       <h1>Моя работа</h1>
       <p>Информация о вашей выпускной квалификационной работе</p>
@@ -332,7 +333,10 @@ const downloadAiReport = () => {
         <span>{workStatus}</span>
       </div>
     </div>
-      </section>
+
+    </div>
+
+    <div className="work-content-grid">
 
       <section className="chat-panel">
   <div className={`chat-empty ${messages.length > 0 ? "has-messages" : ""}`}>
@@ -448,8 +452,7 @@ const downloadAiReport = () => {
   <h2>Проверка ИИ-модулем</h2>
 
   <p>
-    Проверьте содержание, а также структуру<br />
-    и качество текста вашей ВКР.
+    Проверьте содержание, а также структуру и качество текста вашей ВКР.
   </p>
 
   <h3>Загрузите файл работы</h3>
@@ -520,7 +523,8 @@ const downloadAiReport = () => {
   </div>
       </section>
 
-
+    </div>
+      </section>
 </main>
 
       {/* Меню */}    
