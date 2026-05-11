@@ -26,7 +26,7 @@ const handleEditClick = (field) => {
 };
 
   return (
-    <div className="page">
+    <div className="page student-cabinet-page">
       {/* ШАПКА */}
       <header className="header">
         <div className="logo">
