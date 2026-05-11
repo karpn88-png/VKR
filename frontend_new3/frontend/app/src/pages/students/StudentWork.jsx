@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import "./StudentWork.css";
 import logo from "../../assets/logo.png";
 import bell from "../../assets/bell.png";
@@ -9,6 +9,13 @@ import send from "../../assets/send.png";
 
 
 import { Link } from "react-router-dom";
+import {
+  getAttachmentUrl,
+  getWorkThread,
+  sendWorkMessage,
+  STUDENT_ID,
+  submitStudentWork,
+} from "../../api/workThread";
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? "/api";
 const SUPPORTED_WORK_EXTENSIONS = [".docx", ".doc", ".pdf", ".rtf", ".txt"];
@@ -51,6 +58,12 @@ export default function StudentWork() {
 
   const [message, setMessage] = useState("");
   const [messages, setMessages] = useState([]);
+  const [messageFile, setMessageFile] = useState(null);
+  const [submissionFile, setSubmissionFile] = useState(null);
+  const [workStatus, setWorkStatus] = useState("Не проверено");
+  const [chatStatus, setChatStatus] = useState("");
+  const [isSendingMessage, setIsSendingMessage] = useState(false);
+  const [isSubmittingWork, setIsSubmittingWork] = useState(false);
   const [recipientOpen, setRecipientOpen] = useState(false);
   const [selectedRecipient, setSelectedRecipient] = useState(null);
   const [submitModalOpen, setSubmitModalOpen] = useState(false);
@@ -71,27 +84,88 @@ export default function StudentWork() {
   const aiBusy = isUploadingWork || isCheckingWork;
   const canDownloadReport = Boolean(workDocId && aiReportReady && !aiBusy);
 
-  const sendMessage = () => {
-  if (!message.trim() || !selectedRecipient) return;
+  const syncWorkThread = useCallback((thread) => {
+    setMessages(thread.messages ?? []);
+    setWorkStatus(thread.status ?? "Не проверено");
+  }, []);
 
-  setMessages([
-    ...messages,
-    {
-      id: Date.now(),
-      text: message,
-      recipient: selectedRecipient.name,
-      status: "не прочитано",
+  const loadWorkThread = useCallback(async () => {
+    try {
+      syncWorkThread(await getWorkThread(STUDENT_ID));
+    } catch (error) {
+      setChatStatus(`Не удалось загрузить переписку: ${error.message}`);
+    }
+  }, [syncWorkThread]);
 
-      date: new Date().toLocaleDateString("ru-RU"),
+  useEffect(() => {
+    const refresh = () => {
+      void loadWorkThread();
+    };
+    const initial = window.setTimeout(refresh, 0);
+    const timer = window.setInterval(refresh, 5000);
 
-time: new Date().toLocaleTimeString([], {
-  hour: "2-digit",
-  minute: "2-digit",
-}),
-    },
-  ]);
+    return () => {
+      window.clearTimeout(initial);
+      window.clearInterval(timer);
+    };
+  }, [loadWorkThread]);
 
-  setMessage("");
+  const sendMessage = async () => {
+    if (isSendingMessage) return;
+
+    if (!selectedRecipient) {
+      setChatStatus("Сначала выберите получателя.");
+      return;
+    }
+
+    if (!message.trim() && !messageFile) {
+      setChatStatus("Введите сообщение или прикрепите файл.");
+      return;
+    }
+
+    setIsSendingMessage(true);
+    setChatStatus("Отправляем сообщение...");
+
+    try {
+      await sendWorkMessage(STUDENT_ID, {
+        senderRole: "student",
+        senderName: "Иванов И. И.",
+        recipientName: selectedRecipient.name,
+        text: message,
+        file: messageFile,
+      });
+      setMessage("");
+      setMessageFile(null);
+      setChatStatus("");
+      await loadWorkThread();
+    } catch (error) {
+      setChatStatus(`Не удалось отправить сообщение: ${error.message}`);
+    } finally {
+      setIsSendingMessage(false);
+    }
+  };
+
+const submitWork = async () => {
+  if (isSubmittingWork) return;
+
+  setIsSubmittingWork(true);
+  setChatStatus("Отправляем работу преподавателю...");
+
+  try {
+    const thread = await submitStudentWork(STUDENT_ID, {
+      senderName: "Иванов И. И.",
+      text: "Работа отправлена на проверку.",
+      file: submissionFile,
+    });
+    syncWorkThread(thread);
+    setSubmissionFile(null);
+    setSubmitModalOpen(false);
+    setChatStatus("Работа отправлена на проверку.");
+  } catch (error) {
+    setChatStatus(`Не удалось сдать работу: ${error.message}`);
+  } finally {
+    setIsSubmittingWork(false);
+  }
 };
 
 const uploadWorkFile = async (file) => {
@@ -252,25 +326,44 @@ const downloadAiReport = () => {
         <b>Руководитель ВКР:</b>
         <span>Бакаев Максим Александрович</span>
       </div>
+
+      <div>
+        <b>Статус работы:</b>
+        <span>{workStatus}</span>
+      </div>
     </div>
       </section>
 
       <section className="chat-panel">
-  <div className="chat-empty">
+  <div className={`chat-empty ${messages.length > 0 ? "has-messages" : ""}`}>
     {messages.length === 0 ? (
       "Выполнение работы еще не начато"
     ) : (
       messages.map((msg) => (
-        <div className="message" key={msg.id}>
-          <p>{msg.text}</p>
-         
-         <div className="message-info">
-  <span>{msg.recipient}</span>
+        <div
+          className={`message ${msg.sender_role === "teacher" ? "incoming" : "outgoing"}`}
+          key={msg.id}
+        >
+          <div className="message-author">{msg.sender_name}</div>
+          {msg.text && <p>{msg.text}</p>}
+          {msg.has_file && (
+            <a
+              className="message-file"
+              href={getAttachmentUrl(msg.download_url)}
+              target="_blank"
+              rel="noreferrer"
+            >
+              {msg.file_name}
+            </a>
+          )}
 
-  <span>{msg.status}</span>
+         <div className="message-info">
+  <span>{msg.recipient_name ? `Кому: ${msg.recipient_name}` : "Без получателя"}</span>
+
+  <span>{msg.message_type === "submission" ? "сдача работы" : "сообщение"}</span>
 
   <span>
-    {msg.date} · {msg.time}
+    {new Date(msg.created_at).toLocaleString("ru-RU")}
   </span>
 </div>
 
@@ -282,19 +375,33 @@ const downloadAiReport = () => {
   <div className="chat-input-panel">
     <label className="attach-btn">
       <img src={clip} alt="file" className="clip-icon" />
-      <input type="file" hidden />
+      <input
+        type="file"
+        hidden
+        onChange={(event) => {
+          setMessageFile(event.target.files?.[0] ?? null);
+          event.target.value = "";
+        }}
+      />
     </label>
 
     <input
       value={message}
       onChange={(e) => setMessage(e.target.value)}
       placeholder="Написать сообщение..."
+      onKeyDown={(event) => {
+        if (event.key === "Enter") {
+          event.preventDefault();
+          sendMessage();
+        }
+      }}
     />
 
     <button
   className="send-btn"
   type="button"
   onClick={sendMessage}
+  disabled={isSendingMessage}
 >
   <img src={send} alt="send" />
 </button>
@@ -324,9 +431,15 @@ const downloadAiReport = () => {
   onClick={() => setSubmitModalOpen(true)}
 >
   Сдать работу
-</button>
+  </button>
   </div>
-  
+  {(messageFile || chatStatus) && (
+    <div className="chat-status">
+      {messageFile && <span>Прикреплен файл: {messageFile.name}</span>}
+      {chatStatus && <span>{chatStatus}</span>}
+    </div>
+  )}
+
 </section>
 
 
@@ -515,7 +628,14 @@ const downloadAiReport = () => {
 
       <label className="submit-upload-box">
 
-        <input type="file" hidden />
+        <input
+          type="file"
+          hidden
+          onChange={(event) => {
+            setSubmissionFile(event.target.files?.[0] ?? null);
+            event.target.value = "";
+          }}
+        />
 
         <b>
           Перетащите или нажмите для выбора файла в эту область
@@ -528,6 +648,10 @@ const downloadAiReport = () => {
         <img src={clip} alt="file" className="clip-icon" />
 
       </label>
+
+      {submissionFile && (
+        <p className="submit-file-name">Файл к сдаче: {submissionFile.name}</p>
+      )}
 
       <p className="submit-warning">
         После отправки работы выполнение ВКР считается завершенным.
@@ -547,12 +671,10 @@ const downloadAiReport = () => {
         <button
           className="confirm-submit-btn"
           type="button"
-          onClick={() => {
-            alert("Работа успешно отправлена");
-            setSubmitModalOpen(false);
-          }}
+          disabled={isSubmittingWork}
+          onClick={submitWork}
         >
-          Подтвердить
+          {isSubmittingWork ? "Отправляем..." : "Подтвердить"}
         </button>
 
       </div>

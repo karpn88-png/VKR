@@ -7,7 +7,7 @@ import time
 from io import BytesIO
 
 import requests
-from fastapi import FastAPI, HTTPException, UploadFile, File
+from fastapi import FastAPI, HTTPException, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 
@@ -61,7 +61,47 @@ class AnalysisResult(Base):
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
 
 
+class WorkThreadState(Base):
+    __tablename__ = "work_thread_state"
+
+    student_id = Column(Integer, primary_key=True, index=True)
+    status = Column(String, default="Не проверено", nullable=False)
+    submitted_at = Column(DateTime, nullable=True)
+    checked_at = Column(DateTime, nullable=True)
+    updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
+
+
+class WorkMessage(Base):
+    __tablename__ = "work_messages"
+
+    id = Column(Integer, primary_key=True, index=True)
+    student_id = Column(Integer, index=True, nullable=False)
+    sender_role = Column(String, nullable=False)
+    sender_name = Column(String, nullable=False)
+    recipient_name = Column(String, nullable=True)
+    text = Column(Text, nullable=True)
+    message_type = Column(String, default="message", nullable=False)
+    file_name = Column(String, nullable=True)
+    file_content = Column(LargeBinary, nullable=True)
+    file_content_type = Column(String, nullable=True)
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+
+
 Base.metadata.create_all(bind=engine)
+
+STUDENT_PROFILE = {
+    "id": 1,
+    "fio": "Иванов Иван Иванович",
+    "short_name": "Иванов И. И.",
+    "group": "АТ-23",
+    "topic": "Разработка информационной системы",
+    "teacher": "Бакаев Максим Александрович",
+}
+
+TEACHER_PROFILE = {
+    "short_name": "Бакаев М. А.",
+    "full_name": "Бакаев Максим Александрович",
+}
 
 
 def extract_rtf_text(content: bytes) -> str:
@@ -125,6 +165,54 @@ def run_ai_analysis(text: str) -> dict:
         detail=f"AI module unavailable after {attempts} attempts: {last_error}",
     )
 
+
+def get_or_create_work_state(db, student_id: int) -> WorkThreadState:
+    state = db.query(WorkThreadState).filter(WorkThreadState.student_id == student_id).first()
+    if state:
+        return state
+
+    state = WorkThreadState(student_id=student_id, status="Не проверено")
+    db.add(state)
+    db.commit()
+    db.refresh(state)
+    return state
+
+
+def serialize_work_message(message: WorkMessage) -> dict:
+    return {
+        "id": message.id,
+        "student_id": message.student_id,
+        "sender_role": message.sender_role,
+        "sender_name": message.sender_name,
+        "recipient_name": message.recipient_name,
+        "text": message.text,
+        "message_type": message.message_type,
+        "file_name": message.file_name,
+        "has_file": bool(message.file_content),
+        "file_content_type": message.file_content_type,
+        "download_url": f"/work_thread/{message.student_id}/attachments/{message.id}" if message.file_content else None,
+        "created_at": message.created_at.isoformat(),
+    }
+
+
+def serialize_work_thread(db, student_id: int) -> dict:
+    state = get_or_create_work_state(db, student_id)
+    messages = (
+        db.query(WorkMessage)
+        .filter(WorkMessage.student_id == student_id)
+        .order_by(WorkMessage.created_at.asc(), WorkMessage.id.asc())
+        .all()
+    )
+
+    return {
+        "student": STUDENT_PROFILE,
+        "teacher": TEACHER_PROFILE,
+        "status": state.status,
+        "submitted_at": state.submitted_at.isoformat() if state.submitted_at else None,
+        "checked_at": state.checked_at.isoformat() if state.checked_at else None,
+        "messages": [serialize_work_message(message) for message in messages],
+    }
+
 # ============================================================
 # FASTAPI APP
 # ============================================================
@@ -141,6 +229,165 @@ app.add_middleware(
 # ============================================================
 # ROUTES
 # ============================================================
+
+
+@app.get("/teacher_students")
+def list_teacher_students():
+    db = SessionLocal()
+    state = get_or_create_work_state(db, STUDENT_PROFILE["id"])
+    db.close()
+
+    return [
+        {
+            "id": STUDENT_PROFILE["id"],
+            "fio": STUDENT_PROFILE["fio"],
+            "group": STUDENT_PROFILE["group"],
+            "topic": STUDENT_PROFILE["topic"],
+            "status": state.status,
+        }
+    ]
+
+
+@app.get("/work_thread/{student_id}")
+def get_work_thread(student_id: int):
+    db = SessionLocal()
+    try:
+        return serialize_work_thread(db, student_id)
+    finally:
+        db.close()
+
+
+@app.post("/work_thread/{student_id}/messages")
+async def create_work_message(
+    student_id: int,
+    sender_role: str = Form(...),
+    sender_name: str = Form(...),
+    recipient_name: str = Form(default=""),
+    text: str = Form(default=""),
+    message_type: str = Form(default="message"),
+    file: UploadFile | None = File(default=None),
+):
+    sender_role = sender_role.strip().lower()
+    if sender_role not in {"student", "teacher"}:
+        raise HTTPException(status_code=400, detail="sender_role must be student or teacher")
+
+    text = text.strip()
+    file_content = None
+    file_name = None
+    file_content_type = None
+
+    if file and file.filename:
+        file_content = await file.read()
+        file_name = file.filename
+        file_content_type = file.content_type
+
+    if not text and not file_content:
+        raise HTTPException(status_code=400, detail="Message text or file is required")
+
+    db = SessionLocal()
+    try:
+        get_or_create_work_state(db, student_id)
+        message = WorkMessage(
+            student_id=student_id,
+            sender_role=sender_role,
+            sender_name=sender_name.strip(),
+            recipient_name=recipient_name.strip() or None,
+            text=text or None,
+            message_type=message_type.strip() or "message",
+            file_name=file_name,
+            file_content=file_content,
+            file_content_type=file_content_type,
+        )
+        db.add(message)
+        db.commit()
+        db.refresh(message)
+        return serialize_work_message(message)
+    finally:
+        db.close()
+
+
+@app.get("/work_thread/{student_id}/attachments/{message_id}")
+def download_work_attachment(student_id: int, message_id: int):
+    db = SessionLocal()
+    message = (
+        db.query(WorkMessage)
+        .filter(WorkMessage.student_id == student_id, WorkMessage.id == message_id)
+        .first()
+    )
+    db.close()
+
+    if not message or not message.file_content:
+        raise HTTPException(status_code=404, detail="Attachment not found")
+
+    safe_name = (message.file_name or f"attachment_{message_id}").replace("/", "_").replace("\\", "_")
+    return StreamingResponse(
+        BytesIO(message.file_content),
+        media_type=message.file_content_type or "application/octet-stream",
+        headers={"Content-Disposition": f'attachment; filename="{safe_name}"'},
+    )
+
+
+@app.post("/work_thread/{student_id}/submit")
+async def submit_work(
+    student_id: int,
+    sender_name: str = Form(default=STUDENT_PROFILE["short_name"]),
+    text: str = Form(default="Работа отправлена на проверку."),
+    file: UploadFile | None = File(default=None),
+):
+    db = SessionLocal()
+    try:
+        state = get_or_create_work_state(db, student_id)
+        state.status = "На проверке"
+        state.submitted_at = datetime.datetime.utcnow()
+        state.checked_at = None
+
+        file_content = None
+        file_name = None
+        file_content_type = None
+        if file and file.filename:
+            file_content = await file.read()
+            file_name = file.filename
+            file_content_type = file.content_type
+
+        message = WorkMessage(
+            student_id=student_id,
+            sender_role="student",
+            sender_name=sender_name.strip() or STUDENT_PROFILE["short_name"],
+            recipient_name=TEACHER_PROFILE["full_name"],
+            text=text.strip() or "Работа отправлена на проверку.",
+            message_type="submission",
+            file_name=file_name,
+            file_content=file_content,
+            file_content_type=file_content_type,
+        )
+        db.add(message)
+        db.commit()
+        return serialize_work_thread(db, student_id)
+    finally:
+        db.close()
+
+
+@app.post("/work_thread/{student_id}/mark_checked")
+def mark_work_checked(student_id: int):
+    db = SessionLocal()
+    try:
+        state = get_or_create_work_state(db, student_id)
+        state.status = "Проверено"
+        state.checked_at = datetime.datetime.utcnow()
+
+        message = WorkMessage(
+            student_id=student_id,
+            sender_role="teacher",
+            sender_name=TEACHER_PROFILE["short_name"],
+            recipient_name=STUDENT_PROFILE["fio"],
+            text='Работа отмечена как "Проверено".',
+            message_type="status",
+        )
+        db.add(message)
+        db.commit()
+        return serialize_work_thread(db, student_id)
+    finally:
+        db.close()
 
 
 @app.post("/upload")

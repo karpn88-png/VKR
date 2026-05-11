@@ -307,6 +307,14 @@ a {
   align-items: center;
 
   font-size: 22px;
+  overflow-y: auto;
+}
+
+.chat-empty.has-messages {
+  justify-content: flex-start;
+  align-items: stretch;
+  gap: 10px;
+  font-size: 15px;
 }
 
 .send-btn img {
@@ -316,8 +324,6 @@ a {
 }
 
 .message {
-  align-self: flex-end;
-
   max-width: 70%;
 
   background: #dff1ea;
@@ -326,6 +332,31 @@ a {
 
   padding: 10px 14px;
   margin-bottom: 10px;
+}
+
+.message.outgoing {
+  align-self: flex-end;
+}
+
+.message.incoming {
+  align-self: flex-start;
+  background: #f4f4f4;
+}
+
+.message-author {
+  margin-bottom: 5px;
+  color: #00834f;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.message-file {
+  display: inline-block;
+  margin: 4px 0 8px;
+  color: #00834f;
+  font-size: 13px;
+  font-weight: 700;
+  text-decoration: underline;
 }
 
 .message p {
@@ -377,6 +408,12 @@ a {
 
   font-size: 22px;
   cursor: pointer;
+}
+
+.send-btn:disabled,
+.confirm-submit-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
 }
 
 .recipient-btn {
@@ -536,6 +573,16 @@ a {
   white-space: nowrap;
 }
 
+.chat-status {
+  display: flex;
+  gap: 16px;
+  min-height: 18px;
+  margin-top: 6px;
+  color: #777;
+  font-size: 12px;
+  font-weight: 700;
+}
+
 .submit-modal {
   width: 420px;
 
@@ -648,4 +695,11 @@ a {
   border: none;
 
   color: white;
+}
+
+.submit-file-name {
+  margin: 12px 0 0;
+  color: #00834f;
+  font-size: 13px;
+  font-weight: 700;
 }

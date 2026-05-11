@@ -379,6 +379,17 @@ a {
   gap: 6px;
 }
 
+.teacher-message.teacher-own-message {
+  margin-left: auto;
+}
+
+.teacher-message.student-message {
+  margin-right: auto;
+  margin-left: 0;
+  background: #f5f5f5;
+  border-color: #dcdcdc;
+}
+
 .teacher-message-header {
   display: flex;
   justify-content: space-between;
@@ -409,6 +420,13 @@ a {
   line-height: 1.4;
 }
 
+.teacher-message-file {
+  color: #00834f;
+  font-size: 14px;
+  font-weight: 700;
+  text-decoration: underline;
+}
+
 /* ПАНЕЛЬ ОТПРАВКИ */
 
 .teacher-chat-input {
@@ -425,6 +443,7 @@ a {
   padding: 0 16px;
 
   background: white;
+  flex-wrap: wrap;
 }
 
 .teacher-chat-input input[type="text"] {
@@ -488,6 +507,23 @@ a {
 
 .teacher-submit-btn:hover {
   background: #006e3f;
+}
+
+.teacher-attach-btn:disabled,
+.teacher-send-btn:disabled,
+.teacher-submit-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.teacher-chat-status {
+  flex-basis: 100%;
+  display: flex;
+  gap: 16px;
+  min-height: 18px;
+  color: #777;
+  font-size: 12px;
+  font-weight: 700;
 }
 
 /* УВЕДОМЛЕНИЕ ОБ УСПЕХЕ */
