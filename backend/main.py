@@ -5,6 +5,7 @@ import datetime
 import re
 import time
 from io import BytesIO
+from urllib.parse import quote
 
 import requests
 from fastapi import FastAPI, HTTPException, UploadFile, File, Form
@@ -29,6 +30,13 @@ AI_URL = os.getenv("AI_URL")
 engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(bind=engine)
 Base = declarative_base()
+
+
+def attachment_content_disposition(filename: str) -> str:
+    safe_name = (filename or "attachment").replace("/", "_").replace("\\", "_").replace('"', "_")
+    ascii_name = re.sub(r"[^A-Za-z0-9._ -]", "_", safe_name).strip() or "attachment"
+    encoded_name = quote(safe_name, safe="")
+    return f'attachment; filename="{ascii_name}"; filename*=UTF-8\'\'{encoded_name}'
 
 
 class Document(Base):
@@ -323,7 +331,7 @@ def download_work_attachment(student_id: int, message_id: int):
     return StreamingResponse(
         BytesIO(message.file_content),
         media_type=message.file_content_type or "application/octet-stream",
-        headers={"Content-Disposition": f'attachment; filename="{safe_name}"'},
+        headers={"Content-Disposition": attachment_content_disposition(safe_name)},
     )
 
 
@@ -576,7 +584,7 @@ def report_word(doc_id: int):
     return StreamingResponse(
         buf,
         media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-        headers={"Content-Disposition": f'attachment; filename="{out_name}"'}
+        headers={"Content-Disposition": attachment_content_disposition(out_name)}
     )
 @app.get("/analysis_reports/{doc_id}")
 def get_reports(doc_id: int):
