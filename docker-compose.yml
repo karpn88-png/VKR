@@ -21,14 +21,17 @@ services:
     container_name: ai_module
     ports:
       - "5000:5000"
+    volumes:
+      - ./ai_module/model:/app/model:ro
     environment:
       ENABLE_REMOTE_MODEL_DOWNLOAD: "0"
+      REQUIRE_LOCAL_EMBEDDING_MODEL: "1"
       SENTENCE_MODEL_PATH: "/app/model"
       SENTENCE_MODEL_NAME: "sentence-transformers/all-MiniLM-L6-v2"
       EMBEDDING_MODEL_WAIT_SECONDS: "90"
       FALLBACK_VECTOR_DIM: "128"
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:5000/health', timeout=2)"]
+      test: ["CMD", "python", "-c", "import json, urllib.request; data=json.load(urllib.request.urlopen('http://127.0.0.1:5000/health', timeout=2)); assert data.get('embedding_enabled') and data.get('model_name') == 'sentence-transformers/all-MiniLM-L6-v2', data"]
       interval: 10s
       timeout: 3s
       retries: 12

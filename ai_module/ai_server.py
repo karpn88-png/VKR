@@ -7,7 +7,7 @@ import re
 import threading
 import time
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 
 app = FastAPI()
@@ -51,6 +51,10 @@ model_lock = threading.Lock()
 
 def _env_enabled(name: str, default: str = "0") -> bool:
     return os.getenv(name, default).lower() in {"1", "true", "yes", "on"}
+
+
+def local_embedding_required() -> bool:
+    return _env_enabled("REQUIRE_LOCAL_EMBEDDING_MODEL", "1")
 
 
 def detect_local_model_name(model_path: Path) -> str | None:
@@ -183,6 +187,15 @@ async def analyze(data: TextIn):
         active_model_name = model_display_name
         active_model_error = model_error
 
+    if local_embedding_required() and active_model is None:
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "Local embedding model is not loaded. "
+                f"source={active_model_source}; error={active_model_error}"
+            ),
+        )
+
     embedding = []
     embedding_source = active_model_source
     embedding_model = active_model_name
@@ -193,6 +206,8 @@ async def analyze(data: TextIn):
             embedding = active_model.encode([text])[0].tolist()
             embedding = [round(float(value), 6) for value in embedding]
         except Exception as e:
+            if local_embedding_required():
+                raise HTTPException(status_code=500, detail=f"Embedding model encode failed: {e}") from e
             embedding = build_fallback_vector(words)
             embedding_source = "fallback:hashed-word-vector"
             embedding_model = None
