@@ -69,6 +69,23 @@ def add_multiline_report(document: DocxDocument, text: str | None) -> None:
         document.add_paragraph(line.rstrip())
 
 
+def format_numeric_vector(vector, values_per_line: int = 8) -> list[str]:
+    if not isinstance(vector, list) or not vector:
+        return ["Вектор не сохранён. Запустите проверку документа заново."]
+
+    values = []
+    for value in vector:
+        try:
+            values.append(f"{float(value):.6f}")
+        except (TypeError, ValueError):
+            values.append(str(value))
+
+    return [
+        ", ".join(values[index:index + values_per_line])
+        for index in range(0, len(values), values_per_line)
+    ]
+
+
 class Document(Base):
     __tablename__ = "documents"
 
@@ -528,12 +545,24 @@ def analyze_document(doc_id: int):
 
     analysis = run_ai_analysis(text)
 
-    # Оставляем только нужные метрики (не возвращаем/не сохраняем полный JSON)
+    embedding_vector = analysis.get("embedding") or []
+
+    # Сохраняем метрики и числовой вектор текста для Word-отчета.
     brief = {
         "total_words": analysis.get("total_words"),
         "unique_words": analysis.get("unique_words"),
         "uniqueness": analysis.get("uniqueness"),
         "embedding_dim": analysis.get("embedding_dim"),
+        "embedding_source": analysis.get("embedding_source"),
+        "embedding_error": analysis.get("embedding_error"),
+        "embedding_vector": embedding_vector,
+    }
+    llm_signals = {
+        "total_words": brief["total_words"],
+        "unique_words": brief["unique_words"],
+        "uniqueness": brief["uniqueness"],
+        "embedding_dim": brief["embedding_dim"],
+        "embedding_source": brief["embedding_source"],
     }
 
     # ============================================================
@@ -543,13 +572,13 @@ def analyze_document(doc_id: int):
     try:
         llm_report = generate_report(
             text,
-            local_signals={"local_analysis_summary": brief}
+            local_signals={"local_analysis_summary": llm_signals}
         )
     except Exception as e:
         llm_report = f"[GigaChat error] {e}"
 
     # ============================================================
-    # СОХРАНЯЕМ В БД (ТОЛЬКО brief + llm_report)
+    # СОХРАНЯЕМ В БД
     # ============================================================
 
     db = SessionLocal()
@@ -563,7 +592,7 @@ def analyze_document(doc_id: int):
 
     return {
         "filename": filename,
-        "analysis": brief,
+        "analysis": llm_signals,
         "llm_report": llm_report
     }
 
@@ -600,9 +629,18 @@ def report_word(doc_id: int):
     d.add_paragraph(f"unique_words: {a.get('unique_words')}")
     d.add_paragraph(f"uniqueness: {a.get('uniqueness')}")
     d.add_paragraph(f"embedding_dim: {a.get('embedding_dim')}")
+    d.add_paragraph(f"embedding_source: {a.get('embedding_source')}")
 
     d.add_heading("Отчёт LLM", level=2)
     add_multiline_report(d, result.llm_report)
+
+    d.add_heading("Числовой вектор текста", level=2)
+    d.add_paragraph(f"Размерность: {a.get('embedding_dim')}")
+    d.add_paragraph(f"Источник: {a.get('embedding_source')}")
+    if a.get("embedding_error"):
+        d.add_paragraph(f"Примечание: {a.get('embedding_error')}")
+    for line in format_numeric_vector(a.get("embedding_vector")):
+        d.add_paragraph(line)
 
     buf = BytesIO()
     d.save(buf)
@@ -640,7 +678,8 @@ def get_reports(doc_id: int):
                 "total_words": r.analysis_json.get("total_words") if r.analysis_json else None,
                 "unique_words": r.analysis_json.get("unique_words") if r.analysis_json else None,
                 "uniqueness": r.analysis_json.get("uniqueness") if r.analysis_json else None,
-                "embedding_dim": r.analysis_json.get("embedding_dim") if r.analysis_json else None
+                "embedding_dim": r.analysis_json.get("embedding_dim") if r.analysis_json else None,
+                "embedding_source": r.analysis_json.get("embedding_source") if r.analysis_json else None,
             }
         }
         for r in results

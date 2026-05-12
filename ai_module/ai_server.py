@@ -1,4 +1,6 @@
 from pathlib import Path
+import hashlib
+import math
 import os
 import re
 import threading
@@ -17,6 +19,24 @@ def clean_text(t: str) -> str:
     t = t.lower()
     t = re.sub(r"[^a-zA-Zа-яА-Я0-9\s]", "", t)
     return t.strip()
+
+
+def build_fallback_vector(words: list[str]) -> list[float]:
+    """Build a deterministic numeric text vector when no embedding model is available."""
+    dim = int(os.getenv("FALLBACK_VECTOR_DIM", "128"))
+    vector = [0.0] * dim
+
+    for word in words:
+        digest = hashlib.sha256(word.encode("utf-8")).digest()
+        index = int.from_bytes(digest[:4], "big") % dim
+        sign = 1.0 if digest[4] % 2 == 0 else -1.0
+        vector[index] += sign
+
+    norm = math.sqrt(sum(value * value for value in vector))
+    if norm:
+        vector = [value / norm for value in vector]
+
+    return [round(value, 6) for value in vector]
 
 
 model = None
@@ -101,6 +121,7 @@ def health():
         "model_loading": loading,
         "embedding_enabled": embedding_enabled,
         "model_error": error,
+        "fallback_vector_dim": int(os.getenv("FALLBACK_VECTOR_DIM", "128")),
     }
 
 
@@ -116,11 +137,26 @@ async def analyze(data: TextIn):
 
     with model_lock:
         active_model = model
+        active_model_source = model_source
+        active_model_error = model_error
 
-    embedding_dim = 0
+    embedding = []
+    embedding_source = active_model_source
+    embedding_error = active_model_error
+
     if active_model is not None:
-        embedding = active_model.encode([text])[0].tolist()
-        embedding_dim = len(embedding)
+        try:
+            embedding = active_model.encode([text])[0].tolist()
+            embedding = [round(float(value), 6) for value in embedding]
+        except Exception as e:
+            embedding = build_fallback_vector(words)
+            embedding_source = "fallback:hashed-word-vector"
+            embedding_error = f"embedding model encode failed: {e}"
+    else:
+        embedding = build_fallback_vector(words)
+        embedding_source = "fallback:hashed-word-vector"
+
+    embedding_dim = len(embedding)
 
     return {
         "cleaned": cleaned,
@@ -128,4 +164,7 @@ async def analyze(data: TextIn):
         "unique_words": unique_words,
         "uniqueness": uniqueness,
         "embedding_dim": embedding_dim,
+        "embedding": embedding,
+        "embedding_source": embedding_source,
+        "embedding_error": embedding_error,
     }
