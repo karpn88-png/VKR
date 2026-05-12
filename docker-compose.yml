@@ -23,6 +23,9 @@ services:
       - "5000:5000"
     environment:
       ENABLE_REMOTE_MODEL_DOWNLOAD: "0"
+      SENTENCE_MODEL_PATH: "/app/model"
+      SENTENCE_MODEL_NAME: "sentence-transformers/all-MiniLM-L6-v2"
+      EMBEDDING_MODEL_WAIT_SECONDS: "90"
       FALLBACK_VECTOR_DIM: "128"
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:5000/health', timeout=2)"]

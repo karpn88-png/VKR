@@ -1,9 +1,11 @@
 from pathlib import Path
 import hashlib
+import json
 import math
 import os
 import re
 import threading
+import time
 
 from fastapi import FastAPI
 from pydantic import BaseModel
@@ -41,6 +43,7 @@ def build_fallback_vector(words: list[str]) -> list[float]:
 
 model = None
 model_source = "not_loaded"
+model_display_name = None
 model_error = None
 model_loading = False
 model_lock = threading.Lock()
@@ -50,56 +53,90 @@ def _env_enabled(name: str, default: str = "0") -> bool:
     return os.getenv(name, default).lower() in {"1", "true", "yes", "on"}
 
 
+def detect_local_model_name(model_path: Path) -> str | None:
+    readme = model_path / "README.md"
+    if readme.exists():
+        for line in readme.read_text(encoding="utf-8", errors="ignore").splitlines():
+            if line.startswith("# "):
+                title = line.lstrip("#").strip()
+                if title:
+                    if "/" in title:
+                        return title
+                    return f"sentence-transformers/{title}"
+
+    config = model_path / "config.json"
+    if config.exists():
+        try:
+            return json.loads(config.read_text(encoding="utf-8")).get("_name_or_path")
+        except json.JSONDecodeError:
+            return None
+
+    return None
+
+
 def load_embedding_model():
     """Load embedding model with safe fallbacks.
 
     Priority:
-    1) Local mounted model folder `/app/model` (offline mode)
+    1) Local mounted model folder from `SENTENCE_MODEL_PATH`, default `/app/model`
     2) HuggingFace model id from env `SENTENCE_MODEL_ID`, only when enabled
-    3) No model (service still works, returns embedding_dim=0)
+    3) No model (service still works with deterministic fallback vectors)
     """
     try:
         from sentence_transformers import SentenceTransformer
     except Exception as e:
-        return None, "none", f"sentence-transformers import failed: {e}"
+        return None, "none", f"sentence-transformers import failed: {e}", None
 
-    local_model = Path("/app/model")
+    local_model = Path(os.getenv("SENTENCE_MODEL_PATH", "/app/model"))
     if local_model.exists() and local_model.is_dir():
+        display_name = os.getenv("SENTENCE_MODEL_NAME") or detect_local_model_name(local_model)
         try:
-            return SentenceTransformer(str(local_model)), f"local:{local_model}", None
+            return SentenceTransformer(str(local_model)), f"local:{local_model}", None, display_name
         except Exception as e:
-            return None, f"local_failed:{local_model}", str(e)
+            return None, f"local_failed:{local_model}", str(e), display_name
 
     if not _env_enabled("ENABLE_REMOTE_MODEL_DOWNLOAD"):
-        return None, "disabled", "Set ENABLE_REMOTE_MODEL_DOWNLOAD=1 to load a HuggingFace model at runtime"
+        return None, "disabled", "Set ENABLE_REMOTE_MODEL_DOWNLOAD=1 to load a HuggingFace model at runtime", None
 
     model_id = os.getenv("SENTENCE_MODEL_ID", "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2")
     try:
-        return SentenceTransformer(model_id), f"hf:{model_id}", None
+        return SentenceTransformer(model_id), f"hf:{model_id}", None, model_id
     except Exception as e:
-        return None, f"hf_failed:{model_id}", str(e)
+        return None, f"hf_failed:{model_id}", str(e), model_id
 
 
 def ensure_embedding_model_loaded():
-    global model, model_source, model_error, model_loading
+    global model, model_source, model_display_name, model_error, model_loading
 
     with model_lock:
         if model_source != "not_loaded" or model_loading:
             return
         model_loading = True
 
-    loaded_model, loaded_source, loaded_error = load_embedding_model()
+    loaded_model, loaded_source, loaded_error, loaded_display_name = load_embedding_model()
 
     with model_lock:
         model = loaded_model
         model_source = loaded_source
+        model_display_name = loaded_display_name
         model_error = loaded_error
         model_loading = False
 
     if model_error:
         print(f"[AI] Embedding model source: {model_source}; error: {model_error}")
     else:
-        print(f"[AI] Embedding model source: {model_source}")
+        print(f"[AI] Embedding model source: {model_source}; model: {model_display_name}")
+
+
+def wait_for_embedding_model():
+    ensure_embedding_model_loaded()
+    deadline = time.time() + float(os.getenv("EMBEDDING_MODEL_WAIT_SECONDS", "60"))
+
+    while time.time() < deadline:
+        with model_lock:
+            if not model_loading:
+                return
+        time.sleep(0.2)
 
 
 @app.on_event("startup")
@@ -111,6 +148,7 @@ def startup():
 def health():
     with model_lock:
         source = model_source
+        display_name = model_display_name
         error = model_error
         loading = model_loading
         embedding_enabled = model is not None
@@ -118,6 +156,8 @@ def health():
     return {
         "status": "ok",
         "model_source": source,
+        "model_name": display_name,
+        "model_path": os.getenv("SENTENCE_MODEL_PATH", "/app/model"),
         "model_loading": loading,
         "embedding_enabled": embedding_enabled,
         "model_error": error,
@@ -135,13 +175,17 @@ async def analyze(data: TextIn):
     unique_words = len(set(words))
     uniqueness = round(unique_words / total_words * 100, 2) if total_words else 0
 
+    wait_for_embedding_model()
+
     with model_lock:
         active_model = model
         active_model_source = model_source
+        active_model_name = model_display_name
         active_model_error = model_error
 
     embedding = []
     embedding_source = active_model_source
+    embedding_model = active_model_name
     embedding_error = active_model_error
 
     if active_model is not None:
@@ -151,10 +195,12 @@ async def analyze(data: TextIn):
         except Exception as e:
             embedding = build_fallback_vector(words)
             embedding_source = "fallback:hashed-word-vector"
+            embedding_model = None
             embedding_error = f"embedding model encode failed: {e}"
     else:
         embedding = build_fallback_vector(words)
         embedding_source = "fallback:hashed-word-vector"
+        embedding_model = None
 
     embedding_dim = len(embedding)
 
@@ -166,5 +212,6 @@ async def analyze(data: TextIn):
         "embedding_dim": embedding_dim,
         "embedding": embedding,
         "embedding_source": embedding_source,
+        "embedding_model": embedding_model,
         "embedding_error": embedding_error,
     }

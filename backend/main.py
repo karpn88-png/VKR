@@ -554,6 +554,7 @@ def analyze_document(doc_id: int):
         "uniqueness": analysis.get("uniqueness"),
         "embedding_dim": analysis.get("embedding_dim"),
         "embedding_source": analysis.get("embedding_source"),
+        "embedding_model": analysis.get("embedding_model"),
         "embedding_error": analysis.get("embedding_error"),
         "embedding_vector": embedding_vector,
     }
@@ -563,6 +564,7 @@ def analyze_document(doc_id: int):
         "uniqueness": brief["uniqueness"],
         "embedding_dim": brief["embedding_dim"],
         "embedding_source": brief["embedding_source"],
+        "embedding_model": brief["embedding_model"],
     }
 
     # ============================================================
@@ -630,6 +632,7 @@ def report_word(doc_id: int):
     d.add_paragraph(f"uniqueness: {a.get('uniqueness')}")
     d.add_paragraph(f"embedding_dim: {a.get('embedding_dim')}")
     d.add_paragraph(f"embedding_source: {a.get('embedding_source')}")
+    d.add_paragraph(f"embedding_model: {a.get('embedding_model')}")
 
     d.add_heading("Отчёт LLM", level=2)
     add_multiline_report(d, result.llm_report)
@@ -637,6 +640,7 @@ def report_word(doc_id: int):
     d.add_heading("Числовой вектор текста", level=2)
     d.add_paragraph(f"Размерность: {a.get('embedding_dim')}")
     d.add_paragraph(f"Источник: {a.get('embedding_source')}")
+    d.add_paragraph(f"Модель: {a.get('embedding_model') or 'fallback-вектор'}")
     if a.get("embedding_error"):
         d.add_paragraph(f"Примечание: {a.get('embedding_error')}")
     for line in format_numeric_vector(a.get("embedding_vector")):
@@ -680,6 +684,7 @@ def get_reports(doc_id: int):
                 "uniqueness": r.analysis_json.get("uniqueness") if r.analysis_json else None,
                 "embedding_dim": r.analysis_json.get("embedding_dim") if r.analysis_json else None,
                 "embedding_source": r.analysis_json.get("embedding_source") if r.analysis_json else None,
+                "embedding_model": r.analysis_json.get("embedding_model") if r.analysis_json else None,
             }
         }
         for r in results
