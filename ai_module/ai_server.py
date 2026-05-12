@@ -1,5 +1,6 @@
 from pathlib import Path
 import hashlib
+from importlib import metadata
 import json
 import math
 import os
@@ -51,6 +52,13 @@ model_lock = threading.Lock()
 
 def _env_enabled(name: str, default: str = "0") -> bool:
     return os.getenv(name, default).lower() in {"1", "true", "yes", "on"}
+
+
+def package_version(name: str) -> str | None:
+    try:
+        return metadata.version(name)
+    except metadata.PackageNotFoundError:
+        return None
 
 
 def local_embedding_required() -> bool:
@@ -169,6 +177,11 @@ def health():
         "embedding_enabled": embedding_enabled,
         "model_error": error,
         "fallback_vector_dim": int(os.getenv("FALLBACK_VECTOR_DIM", "128")),
+        "package_versions": {
+            "torch": package_version("torch"),
+            "transformers": package_version("transformers"),
+            "sentence-transformers": package_version("sentence-transformers"),
+        },
     }
 
 

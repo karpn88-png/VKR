@@ -1,7 +1,7 @@
 FROM python:3.10
 
 WORKDIR /app
-COPY . /app
+COPY requirements.txt /app/requirements.txt
 
 # системные зависимости
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -11,17 +11,17 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libstdc++6 \
     && rm -rf /var/lib/apt/lists/*
 
-# базовые python-зависимости
-RUN pip install --no-cache-dir "numpy<2"
+RUN pip install --no-cache-dir --upgrade pip
 
-# PyTorch CPU совместимый с новыми transformers (>=2.4)
+# PyTorch CPU. Остальные ML-библиотеки закреплены в requirements.txt.
 RUN pip install --no-cache-dir --index-url https://download.pytorch.org/whl/cpu torch==2.4.0
 
-# остальные зависимости
-RUN pip install --no-cache-dir transformers sentence-transformers
+# FastAPI + SentenceTransformers stack with pinned compatible versions.
+RUN pip install --no-cache-dir -r /app/requirements.txt
 
-# uvicorn + fastapi
-RUN pip install --no-cache-dir uvicorn fastapi
+RUN python -c "import torch, transformers, sentence_transformers; print('AI deps:', torch.__version__, transformers.__version__, sentence_transformers.__version__)"
+
+COPY . /app
 
 EXPOSE 5000
 
