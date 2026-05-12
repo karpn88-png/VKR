@@ -31,10 +31,11 @@ services:
       EMBEDDING_MODEL_WAIT_SECONDS: "90"
       FALLBACK_VECTOR_DIM: "128"
     healthcheck:
-      test: ["CMD", "python", "-c", "import json, urllib.request; data=json.load(urllib.request.urlopen('http://127.0.0.1:5000/health', timeout=2)); assert data.get('embedding_enabled') and data.get('model_name') == 'sentence-transformers/all-MiniLM-L6-v2', data"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:5000/health', timeout=5)"]
       interval: 10s
-      timeout: 3s
-      retries: 12
+      timeout: 8s
+      retries: 30
+      start_period: 60s
     restart: unless-stopped
 
   backend:

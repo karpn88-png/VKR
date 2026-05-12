@@ -150,6 +150,7 @@ def startup():
 
 @app.get("/health")
 def health():
+    model_path = Path(os.getenv("SENTENCE_MODEL_PATH", "/app/model"))
     with model_lock:
         source = model_source
         display_name = model_display_name
@@ -161,12 +162,32 @@ def health():
         "status": "ok",
         "model_source": source,
         "model_name": display_name,
-        "model_path": os.getenv("SENTENCE_MODEL_PATH", "/app/model"),
+        "model_path": str(model_path),
+        "model_path_exists": model_path.exists(),
+        "model_config_exists": (model_path / "config.json").exists(),
         "model_loading": loading,
         "embedding_enabled": embedding_enabled,
         "model_error": error,
         "fallback_vector_dim": int(os.getenv("FALLBACK_VECTOR_DIM", "128")),
     }
+
+
+@app.get("/ready")
+def ready():
+    status = health()
+    if local_embedding_required() and not status["embedding_enabled"]:
+        raise HTTPException(
+            status_code=503,
+            detail=(
+                "Embedding model is not ready. "
+                f"source={status['model_source']}; "
+                f"loading={status['model_loading']}; "
+                f"path_exists={status['model_path_exists']}; "
+                f"config_exists={status['model_config_exists']}; "
+                f"error={status['model_error']}"
+            ),
+        )
+    return status
 
 
 @app.post("/analyze")
