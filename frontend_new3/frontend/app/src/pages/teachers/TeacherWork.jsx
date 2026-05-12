@@ -10,6 +10,7 @@ import send from "../../assets/send.png";
 
 import { Link } from "react-router-dom";
 import {
+  formatAppDateTime,
   getAttachmentUrl,
   getTeacherStudents,
   getWorkThread,
@@ -329,7 +330,7 @@ export default function TeacherWork() {
                       </span>
 
                       <span className="teacher-message-date">
-                        {new Date(msg.created_at).toLocaleString("ru-RU")}
+                        {formatAppDateTime(msg.created_at)}
                       </span>
                     </div>
 

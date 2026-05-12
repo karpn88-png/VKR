@@ -10,6 +10,7 @@ import send from "../../assets/send.png";
 
 import { Link } from "react-router-dom";
 import {
+  formatAppDateTime,
   getAttachmentUrl,
   getWorkThread,
   sendWorkMessage,
@@ -367,7 +368,7 @@ const downloadAiReport = () => {
   <span>{msg.message_type === "submission" ? "сдача работы" : "сообщение"}</span>
 
   <span>
-    {new Date(msg.created_at).toLocaleString("ru-RU")}
+    {formatAppDateTime(msg.created_at)}
   </span>
 </div>
 

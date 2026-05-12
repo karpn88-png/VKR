@@ -44,6 +44,7 @@ services:
     environment:
       AI_URL: "http://ai:5000"
       DATABASE_URL: "postgresql+psycopg2://vkr:vkrpass@db/vkrdb"
+      APP_TIMEZONE: "Asia/Novosibirsk"
     env_file:
       - ./backend/.env
 

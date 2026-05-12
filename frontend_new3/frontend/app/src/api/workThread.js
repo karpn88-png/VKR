@@ -1,4 +1,5 @@
 const API_BASE = import.meta.env.VITE_API_BASE ?? "/api";
+const APP_TIME_ZONE = import.meta.env.VITE_APP_TIME_ZONE ?? "Asia/Novosibirsk";
 
 export const STUDENT_ID = 1;
 
@@ -87,4 +88,22 @@ export async function markStudentWorkChecked(studentId) {
 
 export function getAttachmentUrl(downloadUrl) {
   return downloadUrl ? `${API_BASE}${downloadUrl}` : null;
+}
+
+export function formatAppDateTime(value) {
+  if (!value) return "";
+
+  const normalized =
+    typeof value === "string" && !/[zZ]|[+-]\d{2}:\d{2}$/.test(value)
+      ? `${value}Z`
+      : value;
+
+  return new Date(normalized).toLocaleString("ru-RU", {
+    timeZone: APP_TIME_ZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 }

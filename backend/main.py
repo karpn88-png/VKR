@@ -6,6 +6,7 @@ import re
 import time
 from io import BytesIO
 from urllib.parse import quote
+from zoneinfo import ZoneInfo
 
 import requests
 from fastapi import FastAPI, HTTPException, UploadFile, File, Form
@@ -26,6 +27,7 @@ from gigachat_client import generate_report
 
 DATABASE_URL = os.getenv("DATABASE_URL")
 AI_URL = os.getenv("AI_URL")
+APP_TIMEZONE = ZoneInfo(os.getenv("APP_TIMEZONE", "Asia/Novosibirsk"))
 
 engine = create_engine(DATABASE_URL)
 SessionLocal = sessionmaker(bind=engine)
@@ -37,6 +39,34 @@ def attachment_content_disposition(filename: str) -> str:
     ascii_name = re.sub(r"[^A-Za-z0-9._ -]", "_", safe_name).strip() or "attachment"
     encoded_name = quote(safe_name, safe="")
     return f'attachment; filename="{ascii_name}"; filename*=UTF-8\'\'{encoded_name}'
+
+
+def as_utc_datetime(value: datetime.datetime | None) -> datetime.datetime | None:
+    if value is None:
+        return None
+    if value.tzinfo is None:
+        return value.replace(tzinfo=datetime.timezone.utc)
+    return value.astimezone(datetime.timezone.utc)
+
+
+def serialize_datetime(value: datetime.datetime | None) -> str | None:
+    utc_value = as_utc_datetime(value)
+    if utc_value is None:
+        return None
+    return utc_value.isoformat().replace("+00:00", "Z")
+
+
+def format_local_datetime(value: datetime.datetime | None) -> str:
+    utc_value = as_utc_datetime(value)
+    if utc_value is None:
+        return ""
+    return utc_value.astimezone(APP_TIMEZONE).strftime("%d.%m.%Y %H:%M:%S")
+
+
+def add_multiline_report(document: DocxDocument, text: str | None) -> None:
+    lines = (text or "—").splitlines() or ["—"]
+    for line in lines:
+        document.add_paragraph(line.rstrip())
 
 
 class Document(Base):
@@ -199,7 +229,7 @@ def serialize_work_message(message: WorkMessage) -> dict:
         "has_file": bool(message.file_content),
         "file_content_type": message.file_content_type,
         "download_url": f"/work_thread/{message.student_id}/attachments/{message.id}" if message.file_content else None,
-        "created_at": message.created_at.isoformat(),
+        "created_at": serialize_datetime(message.created_at),
     }
 
 
@@ -216,8 +246,8 @@ def serialize_work_thread(db, student_id: int) -> dict:
         "student": STUDENT_PROFILE,
         "teacher": TEACHER_PROFILE,
         "status": state.status,
-        "submitted_at": state.submitted_at.isoformat() if state.submitted_at else None,
-        "checked_at": state.checked_at.isoformat() if state.checked_at else None,
+        "submitted_at": serialize_datetime(state.submitted_at),
+        "checked_at": serialize_datetime(state.checked_at),
         "messages": [serialize_work_message(message) for message in messages],
     }
 
@@ -424,7 +454,7 @@ def list_documents():
         {
             "id": d.id,
             "filename": d.filename,
-            "uploaded_at": d.uploaded_at.isoformat(),
+            "uploaded_at": serialize_datetime(d.uploaded_at),
             "size": len(d.content),
         }
         for d in docs
@@ -444,7 +474,7 @@ def get_document(doc_id: int):
     return {
         "id": doc.id,
         "filename": doc.filename,
-        "uploaded_at": doc.uploaded_at.isoformat(),
+        "uploaded_at": serialize_datetime(doc.uploaded_at),
         "size": len(doc.content),
     }
 
@@ -562,7 +592,7 @@ def report_word(doc_id: int):
     d = DocxDocument()
     d.add_heading("Отчёт анализа ВКР", level=1)
     d.add_paragraph(f"Файл: {doc.filename}")
-    d.add_paragraph(f"Дата: {result.created_at}")
+    d.add_paragraph(f"Дата: {format_local_datetime(result.created_at)}")
 
     d.add_heading("Метрики текста", level=2)
     a = result.analysis_json or {}
@@ -572,7 +602,7 @@ def report_word(doc_id: int):
     d.add_paragraph(f"embedding_dim: {a.get('embedding_dim')}")
 
     d.add_heading("Отчёт LLM", level=2)
-    d.add_paragraph(result.llm_report or "—")
+    add_multiline_report(d, result.llm_report)
 
     buf = BytesIO()
     d.save(buf)
@@ -604,7 +634,7 @@ def get_reports(doc_id: int):
     return [
         {
             "id": r.id,
-            "created_at": r.created_at.isoformat(),
+            "created_at": serialize_datetime(r.created_at),
             "llm_report": r.llm_report,
             "analysis": {
                 "total_words": r.analysis_json.get("total_words") if r.analysis_json else None,
