@@ -111,6 +111,23 @@ export async function markStudentWorkChecked(studentId, checkerRole = "teacher")
   );
 }
 
+export async function updateStudentWorkStatus(
+  studentId,
+  status,
+  actorRole = "teacher",
+) {
+  const formData = new FormData();
+  formData.append("status", status);
+  formData.append("actor_role", actorRole);
+
+  return readApiResponse(
+    await fetch(`${API_BASE}/work_thread/${studentId}/status`, {
+      method: "POST",
+      body: formData,
+    }),
+  );
+}
+
 export function getAttachmentUrl(downloadUrl) {
   return downloadUrl ? `${API_BASE}${downloadUrl}` : null;
 }

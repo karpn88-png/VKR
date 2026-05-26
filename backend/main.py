@@ -213,6 +213,15 @@ def recipient_profile_for_role(role: str | None) -> dict:
     return TEACHER_PROFILE
 
 
+def status_actor_name(role: str | None) -> str:
+    normalized = normalize_work_role(role)
+    if normalized == "normcontrol":
+        return NORMCONTROL_PROFILE["short_name"]
+    if normalized == "teacher":
+        return TEACHER_PROFILE["short_name"]
+    return STUDENT_PROFILE["short_name"]
+
+
 def message_belongs_to_role(message: WorkMessage, role: str | None) -> bool:
     normalized = normalize_work_role(role)
     if normalized not in {"teacher", "normcontrol"}:
@@ -228,6 +237,14 @@ def get_student_profile(student_id: int) -> dict:
         (profile for profile in STUDENT_PROFILES if profile["id"] == student_id),
         STUDENT_PROFILE,
     )
+
+
+WORK_STATUSES = {
+    "Не проверено",
+    "На проверке",
+    "Требуется доработка",
+    "Проверено",
+}
 
 
 def extract_rtf_text(content: bytes) -> str:
@@ -551,6 +568,54 @@ def mark_work_checked(student_id: int, checker_role: str = Form(default="teacher
         db.add(message)
         db.commit()
         return serialize_work_thread(db, student_id, checker_role)
+    finally:
+        db.close()
+
+
+@app.post("/work_thread/{student_id}/status")
+def update_work_status(
+    student_id: int,
+    status: str = Form(...),
+    actor_role: str = Form(default="teacher"),
+):
+    status = status.strip()
+    if status not in WORK_STATUSES:
+        raise HTTPException(status_code=400, detail=f"Unsupported work status: {status}")
+
+    actor_role = normalize_work_role(actor_role)
+    if actor_role not in {"teacher", "normcontrol"}:
+        raise HTTPException(status_code=403, detail="Only teacher or normcontrol can change work status")
+
+    student_profile = get_student_profile(student_id)
+    db = SessionLocal()
+    try:
+        state = get_or_create_work_state(
+            db,
+            student_id,
+            student_profile.get("default_status", "Не проверено"),
+        )
+        state.status = status
+        state.updated_at = datetime.datetime.utcnow()
+
+        if status == "На проверке":
+            state.submitted_at = state.submitted_at or datetime.datetime.utcnow()
+            state.checked_at = None
+        elif status == "Проверено":
+            state.checked_at = datetime.datetime.utcnow()
+        else:
+            state.checked_at = None
+
+        message = WorkMessage(
+            student_id=student_id,
+            sender_role=actor_role,
+            sender_name=status_actor_name(actor_role),
+            recipient_name=student_profile["fio"],
+            text=f'Статус работы изменён на "{status}".',
+            message_type="status",
+        )
+        db.add(message)
+        db.commit()
+        return serialize_work_thread(db, student_id, actor_role)
     finally:
         db.close()
 

@@ -14,8 +14,8 @@ import {
   getAttachmentUrl,
   getTeacherStudents,
   getWorkThread,
-  markStudentWorkChecked,
   sendWorkMessage,
+  updateStudentWorkStatus,
 } from "../../api/workThread";
 
 const TEACHER_ROLE = "teacher";
@@ -197,37 +197,35 @@ export default function TeacherWork() {
     }
   };
 
-  const updateStudentStatus = async (newStatus) => {
-    if (!selectedStudent || isMarkingChecked) return;
+  const persistStudentStatus = async (student, newStatus) => {
+    if (!student || isMarkingChecked) return;
 
-    setStatusMenuOpen(false);
+    setIsMarkingChecked(true);
+    setChatStatus("Обновляем статус работы...");
 
-    if (newStatus === "Проверено") {
-      setIsMarkingChecked(true);
-      setChatStatus("Обновляем статус работы...");
-
-      try {
-        const thread = await markStudentWorkChecked(selectedStudent.id, TEACHER_ROLE);
-        setTeacherMessagesByStudent((prev) => ({
-          ...prev,
-          [selectedStudent.id]: thread.messages ?? [],
-        }));
-        applyStudentStatus(selectedStudent.id, thread.status ?? "Проверено");
-        setChatStatus("Статус работы обновлен.");
-      } catch (error) {
-        setChatStatus(`Не удалось обновить статус: ${error.message}`);
-      } finally {
-        setIsMarkingChecked(false);
-      }
-    } else {
-      applyStudentStatus(selectedStudent.id, newStatus);
+    try {
+      const thread = await updateStudentWorkStatus(student.id, newStatus, TEACHER_ROLE);
+      setTeacherMessagesByStudent((prev) => ({
+        ...prev,
+        [student.id]: thread.messages ?? prev[student.id] ?? [],
+      }));
+      applyStudentStatus(student.id, thread.status ?? newStatus);
+      setChatStatus("Статус работы обновлен.");
+      setSuccessMessage(true);
+      setTimeout(() => {
+        setSuccessMessage(false);
+      }, 3000);
+    } catch (error) {
+      setChatStatus(`Не удалось обновить статус: ${error.message}`);
+    } finally {
+      setIsMarkingChecked(false);
     }
+  };
 
-    setSuccessMessage(true);
-
-    setTimeout(() => {
-      setSuccessMessage(false);
-    }, 3000);
+  const updateStudentStatus = async (newStatus) => {
+    if (!selectedStudent) return;
+    setStatusMenuOpen(false);
+    await persistStudentStatus(selectedStudent, newStatus);
   };
 
   const updateStudentGrade = (value) => {
@@ -401,6 +399,7 @@ export default function TeacherWork() {
                           ? "revision"
                           : "not-checked"
                       }`}
+                      disabled={isMarkingChecked}
                       onClick={() => {
                         const statuses = [
                           "Не проверено",
@@ -413,13 +412,7 @@ export default function TeacherWork() {
                         const nextStatus =
                           statuses[(currentIndex + 1) % statuses.length];
 
-                        setStudents((prevStudents) =>
-                          prevStudents.map((s) =>
-                            s.id === student.id
-                              ? { ...s, status: nextStatus }
-                              : s
-                          )
-                        );
+                        void persistStudentStatus(student, nextStatus);
                       }}
                     >
                       {student.status}
