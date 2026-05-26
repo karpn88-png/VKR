@@ -505,6 +505,13 @@ a {
   font-size: 15px;
 }
 
+.message-author {
+  margin-bottom: 6px;
+  color: #007a49;
+  font-size: 13px;
+  font-weight: 700;
+}
+
 .message span {
   color: #777777;
   font-size: 11px;
@@ -574,6 +581,20 @@ a {
   width: 20px;
   height: 20px;
   object-fit: contain;
+}
+
+.send-btn:disabled {
+  cursor: wait;
+  opacity: 0.55;
+}
+
+.chat-status {
+  margin-top: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  color: #777777;
+  font-size: 12px;
 }
 
 /* Модальное окно чата */
@@ -680,6 +701,14 @@ a {
   line-height: 1.4;
 }
 
+.submit-file-name {
+  margin: 12px 0 0;
+  color: #007a49;
+  font-size: 13px;
+  font-weight: 700;
+  word-break: break-word;
+}
+
 .submit-actions {
   margin-top: 28px;
   display: flex;
@@ -706,6 +735,11 @@ a {
   background: #00834f;
   border: none;
   color: white;
+}
+
+.confirm-submit-btn:disabled {
+  cursor: wait;
+  opacity: 0.6;
 }
 
 /* Дополнительные модальные окна */

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import "./StudentWork.css";
 import logo from "../../assets/logo.png";
 import bell from "../../assets/bell.png";
@@ -8,6 +8,14 @@ import support from "../../assets/help.png";
 import send from "../../assets/send.png";
 
 import { Link } from "react-router-dom";
+import {
+  formatAppDateTime,
+  getAttachmentUrl,
+  getWorkThread,
+  sendWorkMessage,
+  STUDENT_ID,
+  submitStudentWork,
+} from "../../api/workThread";
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? "/api";
 const SUPPORTED_WORK_EXTENSIONS = [".docx", ".doc", ".pdf", ".rtf", ".txt"];
@@ -54,6 +62,10 @@ export default function StudentWork() {
   const [messages, setMessages] = useState([]);
   const [attachedFile, setAttachedFile] = useState(null);
   const [activeChatRecipient, setActiveChatRecipient] = useState(null);
+  const [chatStatus, setChatStatus] = useState("");
+  const [isSendingMessage, setIsSendingMessage] = useState(false);
+  const [submissionFile, setSubmissionFile] = useState(null);
+  const [isSubmittingWork, setIsSubmittingWork] = useState(false);
 
   const [selectedCheckType, setSelectedCheckType] = useState("");
   const [checkStatuses, setCheckStatuses] = useState({
@@ -78,11 +90,15 @@ export default function StudentWork() {
       id: 1,
       name: "Бакаев Максим Александрович",
       role: "Руководитель ВКР",
+      threadRole: "teacher",
+      checkType: "supervisor",
     },
     {
       id: 2,
       name: "Герасимов Антон Константинович",
       role: "Сотрудник нормоконтроля",
+      threadRole: "normcontrol",
+      checkType: "norm",
     },
   ];
 
@@ -195,9 +211,62 @@ export default function StudentWork() {
     (user) => user.role === "Сотрудник нормоконтроля"
   );
 
-  const visibleMessages = activeChatRecipient
-    ? messages.filter((msg) => msg.recipientId === activeChatRecipient.id)
-    : messages;
+  const visibleMessages = messages;
+
+  const markRecipientCheckInProgress = (recipient) => {
+    if (!recipient?.checkType) return;
+
+    setSelectedCheckType(recipient.checkType);
+    setCheckStatuses((prev) => ({
+      ...prev,
+      [recipient.checkType]: "inProgress",
+    }));
+  };
+
+  const syncRecipientCheckStatus = useCallback((recipient, backendStatus) => {
+    if (!recipient?.checkType) return;
+
+    const statusMap = {
+      "Не проверено": "notChecked",
+      "На проверке": "inProgress",
+      "Требуется доработка": "revision",
+      "Проверено": "checked",
+    };
+
+    setCheckStatuses((prev) => ({
+      ...prev,
+      [recipient.checkType]: statusMap[backendStatus] ?? prev[recipient.checkType],
+    }));
+  }, []);
+
+  const loadChatThread = useCallback(async (recipient = activeChatRecipient) => {
+    if (!recipient) return;
+
+    try {
+      const thread = await getWorkThread(STUDENT_ID, recipient.threadRole);
+      setMessages(thread.messages ?? []);
+      syncRecipientCheckStatus(recipient, thread.status);
+      setChatStatus("");
+    } catch (error) {
+      setChatStatus(`Не удалось загрузить переписку: ${error.message}`);
+    }
+  }, [activeChatRecipient, syncRecipientCheckStatus]);
+
+  useEffect(() => {
+    if (!chatModalOpen || !activeChatRecipient) return undefined;
+
+    const initial = window.setTimeout(() => {
+      void loadChatThread(activeChatRecipient);
+    }, 0);
+    const timer = window.setInterval(() => {
+      void loadChatThread(activeChatRecipient);
+    }, 5000);
+
+    return () => {
+      window.clearTimeout(initial);
+      window.clearInterval(timer);
+    };
+  }, [activeChatRecipient, chatModalOpen, loadChatThread]);
 
   const handleAttachFile = (e) => {
     const file = e.target.files[0];
@@ -205,6 +274,7 @@ export default function StudentWork() {
     if (!file) return;
 
     setAttachedFile(file);
+    e.target.value = "";
   };
 
   const updateAiCheckStatus = (status) => {
@@ -318,8 +388,11 @@ export default function StudentWork() {
 
   const openChatWithRecipient = (recipient) => {
     setActiveChatRecipient(recipient);
+    setSelectedCheckType(recipient.checkType);
+    setMessages([]);
     setMessage("");
     setAttachedFile(null);
+    setChatStatus("Загружаем переписку...");
     setChatModalOpen(true);
   };
 
@@ -327,70 +400,73 @@ export default function StudentWork() {
     setChatModalOpen(false);
     setMessage("");
     setAttachedFile(null);
+    setChatStatus("");
   };
 
-  const sendMessage = () => {
+  const sendMessage = async () => {
+    if (isSendingMessage) return;
+
     const trimmedMessage = message.trim();
 
     if (!activeChatRecipient) {
-      alert("Не выбран получатель");
+      setChatStatus("Не выбран получатель.");
       return;
     }
 
     if (!trimmedMessage && !attachedFile) {
-      alert("Введите сообщение или прикрепите файл");
+      setChatStatus("Введите сообщение или прикрепите файл.");
       return;
     }
 
-    const isSupervisor = activeChatRecipient.role === "Руководитель ВКР";
-    const isNormControl =
-      activeChatRecipient.role === "Сотрудник нормоконтроля";
+    setIsSendingMessage(true);
+    setChatStatus("Отправляем сообщение...");
 
-    if (attachedFile && isSupervisor) {
-      setSelectedCheckType("supervisor");
-
-      setCheckStatuses((prev) => ({
-        ...prev,
-        supervisor: "inProgress",
-      }));
-    }
-
-    if (attachedFile && isNormControl) {
-      setSelectedCheckType("norm");
-
-      setCheckStatuses((prev) => ({
-        ...prev,
-        norm: "inProgress",
-      }));
-    }
-
-    setMessages((prev) => [
-      ...prev,
-      {
-        id: Date.now(),
+    try {
+      await sendWorkMessage(STUDENT_ID, {
+        senderRole: "student",
+        senderName: "Иванов И. И.",
+        recipientName: activeChatRecipient.name,
+        recipientRole: activeChatRecipient.threadRole,
         text: trimmedMessage,
-        fileName: attachedFile ? attachedFile.name : null,
-        recipientId: activeChatRecipient.id,
-        recipient: activeChatRecipient.name,
-        recipientRole: activeChatRecipient.role,
-        status: "не прочитано",
-        date: new Date().toLocaleDateString("ru-RU"),
-        time: new Date().toLocaleTimeString("ru-RU", {
-          hour: "2-digit",
-          minute: "2-digit",
-        }),
-      },
-    ]);
+        file: attachedFile,
+        messageType: attachedFile ? "submission" : "message",
+      });
 
-    setMessage("");
-    setAttachedFile(null);
+      if (attachedFile) {
+        markRecipientCheckInProgress(activeChatRecipient);
+      }
+
+      setMessage("");
+      setAttachedFile(null);
+      await loadChatThread(activeChatRecipient);
+      setChatStatus("Сообщение отправлено.");
+    } catch (error) {
+      setChatStatus(`Не удалось отправить сообщение: ${error.message}`);
+    } finally {
+      setIsSendingMessage(false);
+    }
   };
 
-  const confirmSubmitWork = () => {
-    setFinalSubmitted(true);
+  const confirmSubmitWork = async () => {
+    if (isSubmittingWork) return;
 
-    alert("Работа успешно отправлена");
-    setSubmitModalOpen(false);
+    setIsSubmittingWork(true);
+
+    try {
+      await submitStudentWork(STUDENT_ID, {
+        senderName: "Иванов И. И.",
+        recipientRole: "teacher",
+        text: "Итоговая работа сдана.",
+        file: submissionFile,
+      });
+      setFinalSubmitted(true);
+      setSubmissionFile(null);
+      setSubmitModalOpen(false);
+    } catch (error) {
+      alert(`Не удалось сдать работу: ${error.message}`);
+    } finally {
+      setIsSubmittingWork(false);
+    }
   };
 
   return (
@@ -752,7 +828,15 @@ export default function StudentWork() {
             <h2>Подтвердите сдачу работы</h2>
 
             <label className="submit-upload-box">
-              <input type="file" hidden accept=".docx,.doc,.pdf,.rtf" />
+              <input
+                type="file"
+                hidden
+                accept=".docx,.doc,.pdf,.rtf"
+                onChange={(event) => {
+                  setSubmissionFile(event.target.files?.[0] ?? null);
+                  event.target.value = "";
+                }}
+              />
 
               <b>Перетащите или нажмите для выбора файла в эту область</b>
 
@@ -760,6 +844,10 @@ export default function StudentWork() {
 
               <img src={clip} alt="file" className="clip-icon" />
             </label>
+
+            {submissionFile && (
+              <p className="submit-file-name">Файл к сдаче: {submissionFile.name}</p>
+            )}
 
             <p className="submit-warning">
               После отправки работы выполнение ВКР считается завершенным.
@@ -778,9 +866,10 @@ export default function StudentWork() {
               <button
                 className="confirm-submit-btn"
                 type="button"
+                disabled={isSubmittingWork}
                 onClick={confirmSubmitWork}
               >
-                Подтвердить
+                {isSubmittingWork ? "Отправляем..." : "Подтвердить"}
               </button>
             </div>
           </div>
@@ -819,17 +908,24 @@ export default function StudentWork() {
                 ) : (
                   visibleMessages.map((msg) => (
                     <div className="message" key={msg.id}>
+                      <div className="message-author">{msg.sender_name}</div>
+
                       {msg.text && <p>{msg.text}</p>}
 
-                      {msg.fileName && (
-                        <div className="message-file">📎 {msg.fileName}</div>
+                      {msg.has_file && (
+                        <a
+                          className="message-file"
+                          href={getAttachmentUrl(msg.download_url)}
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          {msg.file_name}
+                        </a>
                       )}
 
                       <div className="message-info">
-                        <span>{msg.status}</span>
-                        <span>
-                          {msg.date} · {msg.time}
-                        </span>
+                        <span>{msg.message_type === "submission" ? "работа" : "сообщение"}</span>
+                        <span>{formatAppDateTime(msg.created_at)}</span>
                       </div>
                     </div>
                   ))
@@ -858,10 +954,22 @@ export default function StudentWork() {
                   }
                 />
 
-                <button className="send-btn" type="button" onClick={sendMessage}>
+                <button
+                  className="send-btn"
+                  type="button"
+                  disabled={isSendingMessage}
+                  onClick={sendMessage}
+                >
                   <img src={send} alt="send" />
                 </button>
               </div>
+
+              {(attachedFile || chatStatus) && (
+                <div className="chat-status">
+                  {attachedFile && <span>Прикреплен файл: {attachedFile.name}</span>}
+                  {chatStatus && <span>{chatStatus}</span>}
+                </div>
+              )}
             </section>
           </div>
         </div>

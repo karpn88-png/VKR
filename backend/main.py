@@ -158,6 +158,39 @@ TEACHER_PROFILE = {
     "full_name": "Бакаев Максим Александрович",
 }
 
+NORMCONTROL_PROFILE = {
+    "short_name": "Герасимов А. К.",
+    "full_name": "Герасимов Антон Константинович",
+}
+
+
+def normalize_work_role(role: str | None) -> str:
+    value = (role or "").strip().lower()
+    if value in {"teacher", "supervisor", "преподаватель", "руководитель"}:
+        return "teacher"
+    if value in {"normcontrol", "norm", "reviewer", "нормоконтроль"}:
+        return "normcontrol"
+    if value == "student":
+        return "student"
+    return value
+
+
+def recipient_profile_for_role(role: str | None) -> dict:
+    normalized = normalize_work_role(role)
+    if normalized == "normcontrol":
+        return NORMCONTROL_PROFILE
+    return TEACHER_PROFILE
+
+
+def message_belongs_to_role(message: WorkMessage, role: str | None) -> bool:
+    normalized = normalize_work_role(role)
+    if normalized not in {"teacher", "normcontrol"}:
+        return True
+
+    profile = recipient_profile_for_role(normalized)
+    names = {profile["short_name"], profile["full_name"]}
+    return message.sender_role == normalized or message.recipient_name in names
+
 
 def extract_rtf_text(content: bytes) -> str:
     """Best-effort RTF to plain text extraction without external binaries."""
@@ -250,18 +283,24 @@ def serialize_work_message(message: WorkMessage) -> dict:
     }
 
 
-def serialize_work_thread(db, student_id: int) -> dict:
+def serialize_work_thread(db, student_id: int, recipient_role: str | None = None) -> dict:
     state = get_or_create_work_state(db, student_id)
-    messages = (
+    all_messages = (
         db.query(WorkMessage)
         .filter(WorkMessage.student_id == student_id)
         .order_by(WorkMessage.created_at.asc(), WorkMessage.id.asc())
         .all()
     )
+    messages = [
+        message
+        for message in all_messages
+        if message_belongs_to_role(message, recipient_role)
+    ]
 
     return {
         "student": STUDENT_PROFILE,
         "teacher": TEACHER_PROFILE,
+        "normcontrol": NORMCONTROL_PROFILE,
         "status": state.status,
         "submitted_at": serialize_datetime(state.submitted_at),
         "checked_at": serialize_datetime(state.checked_at),
@@ -287,7 +326,7 @@ app.add_middleware(
 
 
 @app.get("/teacher_students")
-def list_teacher_students():
+def list_teacher_students(recipient_role: str = "teacher"):
     db = SessionLocal()
     state = get_or_create_work_state(db, STUDENT_PROFILE["id"])
     db.close()
@@ -298,16 +337,19 @@ def list_teacher_students():
             "fio": STUDENT_PROFILE["fio"],
             "group": STUDENT_PROFILE["group"],
             "topic": STUDENT_PROFILE["topic"],
+            "teacher": TEACHER_PROFILE["short_name"],
+            "grade": "",
+            "teacherGrade": "",
             "status": state.status,
         }
     ]
 
 
 @app.get("/work_thread/{student_id}")
-def get_work_thread(student_id: int):
+def get_work_thread(student_id: int, recipient_role: str | None = None):
     db = SessionLocal()
     try:
-        return serialize_work_thread(db, student_id)
+        return serialize_work_thread(db, student_id, recipient_role)
     finally:
         db.close()
 
@@ -318,13 +360,15 @@ async def create_work_message(
     sender_role: str = Form(...),
     sender_name: str = Form(...),
     recipient_name: str = Form(default=""),
+    recipient_role: str = Form(default=""),
     text: str = Form(default=""),
     message_type: str = Form(default="message"),
     file: UploadFile | None = File(default=None),
 ):
-    sender_role = sender_role.strip().lower()
-    if sender_role not in {"student", "teacher"}:
-        raise HTTPException(status_code=400, detail="sender_role must be student or teacher")
+    sender_role = normalize_work_role(sender_role)
+    recipient_role = normalize_work_role(recipient_role)
+    if sender_role not in {"student", "teacher", "normcontrol"}:
+        raise HTTPException(status_code=400, detail="sender_role must be student, teacher or normcontrol")
 
     text = text.strip()
     file_content = None
@@ -341,7 +385,12 @@ async def create_work_message(
 
     db = SessionLocal()
     try:
-        get_or_create_work_state(db, student_id)
+        state = get_or_create_work_state(db, student_id)
+        if sender_role == "student" and file_content and recipient_role in {"teacher", "normcontrol"}:
+            state.status = "На проверке"
+            state.submitted_at = datetime.datetime.utcnow()
+            state.checked_at = None
+
         message = WorkMessage(
             student_id=student_id,
             sender_role=sender_role,
@@ -386,9 +435,12 @@ def download_work_attachment(student_id: int, message_id: int):
 async def submit_work(
     student_id: int,
     sender_name: str = Form(default=STUDENT_PROFILE["short_name"]),
+    recipient_role: str = Form(default="teacher"),
     text: str = Form(default="Работа отправлена на проверку."),
     file: UploadFile | None = File(default=None),
 ):
+    recipient = recipient_profile_for_role(recipient_role)
+
     db = SessionLocal()
     try:
         state = get_or_create_work_state(db, student_id)
@@ -408,7 +460,7 @@ async def submit_work(
             student_id=student_id,
             sender_role="student",
             sender_name=sender_name.strip() or STUDENT_PROFILE["short_name"],
-            recipient_name=TEACHER_PROFILE["full_name"],
+            recipient_name=recipient["full_name"],
             text=text.strip() or "Работа отправлена на проверку.",
             message_type="submission",
             file_name=file_name,
@@ -417,13 +469,16 @@ async def submit_work(
         )
         db.add(message)
         db.commit()
-        return serialize_work_thread(db, student_id)
+        return serialize_work_thread(db, student_id, recipient_role)
     finally:
         db.close()
 
 
 @app.post("/work_thread/{student_id}/mark_checked")
-def mark_work_checked(student_id: int):
+def mark_work_checked(student_id: int, checker_role: str = Form(default="teacher")):
+    checker_role = normalize_work_role(checker_role)
+    checker = recipient_profile_for_role(checker_role)
+
     db = SessionLocal()
     try:
         state = get_or_create_work_state(db, student_id)
@@ -432,15 +487,15 @@ def mark_work_checked(student_id: int):
 
         message = WorkMessage(
             student_id=student_id,
-            sender_role="teacher",
-            sender_name=TEACHER_PROFILE["short_name"],
+            sender_role=checker_role,
+            sender_name=checker["short_name"],
             recipient_name=STUDENT_PROFILE["fio"],
             text='Работа отмечена как "Проверено".',
             message_type="status",
         )
         db.add(message)
         db.commit()
-        return serialize_work_thread(db, student_id)
+        return serialize_work_thread(db, student_id, checker_role)
     finally:
         db.close()
 

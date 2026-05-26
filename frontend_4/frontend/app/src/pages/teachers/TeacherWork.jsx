@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import "./TeacherWork.css";
 
 import logo from "../../assets/logo.png";
@@ -9,6 +9,17 @@ import support from "../../assets/help.png";
 import send from "../../assets/send.png";
 
 import { Link } from "react-router-dom";
+import {
+  formatAppDateTime,
+  getAttachmentUrl,
+  getTeacherStudents,
+  getWorkThread,
+  markStudentWorkChecked,
+  sendWorkMessage,
+} from "../../api/workThread";
+
+const TEACHER_ROLE = "teacher";
+const TEACHER_NAME = "Бакаев М. А.";
 
 export default function TeacherWork() {
   const [profileOpen, setProfileOpen] = useState(false);
@@ -19,7 +30,11 @@ export default function TeacherWork() {
   const [selectedStudent, setSelectedStudent] = useState(null);
 
   const [teacherMessage, setTeacherMessage] = useState("");
+  const [teacherFile, setTeacherFile] = useState(null);
   const [teacherMessagesByStudent, setTeacherMessagesByStudent] = useState({});
+  const [chatStatus, setChatStatus] = useState("");
+  const [isSendingMessage, setIsSendingMessage] = useState(false);
+  const [isMarkingChecked, setIsMarkingChecked] = useState(false);
 
   const [successMessage, setSuccessMessage] = useState(false);
   const [gradeMessage, setGradeMessage] = useState(false);
@@ -74,45 +89,140 @@ export default function TeacherWork() {
     () => (selectedStudent ? teacherMessagesByStudent[selectedStudent.id] || [] : []),
     [selectedStudent, teacherMessagesByStudent]
   );
+  const selectedStudentId = selectedStudent?.id;
 
-  const sendTeacherMessage = () => {
-    if (!teacherMessage.trim() || !selectedStudent) return;
-
-    const newMessage = {
-      id: Date.now(),
-      text: teacherMessage,
-      sender: "Бакаев М. А.",
-      date: new Date().toLocaleDateString("ru-RU"),
-      time: new Date().toLocaleTimeString([], {
-        hour: "2-digit",
-        minute: "2-digit",
-      }),
-    };
-
-    setTeacherMessagesByStudent((prev) => ({
-      ...prev,
-      [selectedStudent.id]: [...(prev[selectedStudent.id] || []), newMessage],
-    }));
-
-    setTeacherMessage("");
-  };
-
-  const updateStudentStatus = (newStatus) => {
-    if (!selectedStudent) return;
-
+  const applyStudentStatus = useCallback((studentId, status) => {
     setStudents((prevStudents) =>
       prevStudents.map((student) =>
-        student.id === selectedStudent.id
-          ? { ...student, status: newStatus }
-          : student
+        student.id === studentId ? { ...student, status } : student
       )
     );
-
     setSelectedStudent((prevStudent) =>
-      prevStudent ? { ...prevStudent, status: newStatus } : prevStudent
+      prevStudent && prevStudent.id === studentId
+        ? { ...prevStudent, status }
+        : prevStudent
     );
+  }, []);
+
+  const loadStudents = useCallback(async () => {
+    try {
+      setStudents(await getTeacherStudents(TEACHER_ROLE));
+    } catch (error) {
+      setChatStatus(`Не удалось загрузить студентов: ${error.message}`);
+    }
+  }, []);
+
+  const loadTeacherThread = useCallback(async (studentId) => {
+    try {
+      const thread = await getWorkThread(studentId, TEACHER_ROLE);
+      setTeacherMessagesByStudent((prev) => ({
+        ...prev,
+        [studentId]: thread.messages ?? [],
+      }));
+      applyStudentStatus(studentId, thread.status ?? "Не проверено");
+      setChatStatus("");
+    } catch (error) {
+      setChatStatus(`Не удалось загрузить переписку: ${error.message}`);
+    }
+  }, [applyStudentStatus]);
+
+  useEffect(() => {
+    const initial = window.setTimeout(() => {
+      void loadStudents();
+    }, 0);
+    const timer = window.setInterval(() => {
+      void loadStudents();
+    }, 5000);
+
+    return () => {
+      window.clearTimeout(initial);
+      window.clearInterval(timer);
+    };
+  }, [loadStudents]);
+
+  useEffect(() => {
+    if (!studentWorkOpen || !selectedStudentId) return undefined;
+
+    const initial = window.setTimeout(() => {
+      void loadTeacherThread(selectedStudentId);
+    }, 0);
+    const timer = window.setInterval(() => {
+      void loadTeacherThread(selectedStudentId);
+    }, 5000);
+
+    return () => {
+      window.clearTimeout(initial);
+      window.clearInterval(timer);
+    };
+  }, [loadTeacherThread, selectedStudentId, studentWorkOpen]);
+
+  const openStudentWork = (student) => {
+    setSelectedStudent(student);
+    setStudentWorkOpen(true);
+    setStatusMenuOpen(false);
+    setGradeOpen(false);
+    setTeacherMessage("");
+    setTeacherFile(null);
+    setChatStatus("Загружаем переписку...");
+    void loadTeacherThread(student.id);
+  };
+
+  const sendTeacherMessage = async () => {
+    if (isSendingMessage || !selectedStudent) return;
+
+    if (!teacherMessage.trim() && !teacherFile) {
+      setChatStatus("Введите сообщение или прикрепите файл.");
+      return;
+    }
+
+    setIsSendingMessage(true);
+    setChatStatus("Отправляем сообщение...");
+
+    try {
+      await sendWorkMessage(selectedStudent.id, {
+        senderRole: TEACHER_ROLE,
+        senderName: TEACHER_NAME,
+        recipientName: selectedStudent.fio,
+        text: teacherMessage,
+        file: teacherFile,
+      });
+      setTeacherMessage("");
+      setTeacherFile(null);
+      await loadTeacherThread(selectedStudent.id);
+      setChatStatus("Сообщение отправлено.");
+    } catch (error) {
+      setChatStatus(`Не удалось отправить сообщение: ${error.message}`);
+    } finally {
+      setIsSendingMessage(false);
+    }
+  };
+
+  const updateStudentStatus = async (newStatus) => {
+    if (!selectedStudent || isMarkingChecked) return;
 
     setStatusMenuOpen(false);
+
+    if (newStatus === "Проверено") {
+      setIsMarkingChecked(true);
+      setChatStatus("Обновляем статус работы...");
+
+      try {
+        const thread = await markStudentWorkChecked(selectedStudent.id, TEACHER_ROLE);
+        setTeacherMessagesByStudent((prev) => ({
+          ...prev,
+          [selectedStudent.id]: thread.messages ?? [],
+        }));
+        applyStudentStatus(selectedStudent.id, thread.status ?? "Проверено");
+        setChatStatus("Статус работы обновлен.");
+      } catch (error) {
+        setChatStatus(`Не удалось обновить статус: ${error.message}`);
+      } finally {
+        setIsMarkingChecked(false);
+      }
+    } else {
+      applyStudentStatus(selectedStudent.id, newStatus);
+    }
+
     setSuccessMessage(true);
 
     setTimeout(() => {
@@ -322,12 +432,7 @@ export default function TeacherWork() {
                     <button
                       className="go-work-link"
                       type="button"
-                      onClick={() => {
-                        setSelectedStudent(student);
-                        setStudentWorkOpen(true);
-                        setStatusMenuOpen(false);
-                        setGradeOpen(false);
-                      }}
+                      onClick={() => openStudentWork(student)}
                     >
                       Перейти
                     </button>
@@ -377,15 +482,28 @@ export default function TeacherWork() {
                   <div className="teacher-message" key={msg.id}>
                     <div className="teacher-message-header">
                       <span className="teacher-message-author">
-                        {msg.sender}
+                        {msg.sender_name}
                       </span>
 
                       <span className="teacher-message-date">
-                        {msg.date} {msg.time}
+                        {formatAppDateTime(msg.created_at)}
                       </span>
                     </div>
 
-                    <div className="teacher-message-text">{msg.text}</div>
+                    {msg.text && (
+                      <div className="teacher-message-text">{msg.text}</div>
+                    )}
+
+                    {msg.has_file && (
+                      <a
+                        className="teacher-message-file"
+                        href={getAttachmentUrl(msg.download_url)}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        {msg.file_name}
+                      </a>
+                    )}
                   </div>
                 ))
               )}
@@ -395,7 +513,14 @@ export default function TeacherWork() {
               <div className="teacher-chat-input">
                 <label className="teacher-attach-btn">
                   <img src={clip} alt="file" className="clip-icon" />
-                  <input type="file" hidden />
+                  <input
+                    type="file"
+                    hidden
+                    onChange={(event) => {
+                      setTeacherFile(event.target.files?.[0] ?? null);
+                      event.target.value = "";
+                    }}
+                  />
                 </label>
 
                 <input
@@ -414,11 +539,19 @@ export default function TeacherWork() {
                 <button
                   className="teacher-send-btn"
                   type="button"
+                  disabled={isSendingMessage}
                   onClick={sendTeacherMessage}
                 >
                   <img src={send} alt="send" />
                 </button>
               </div>
+
+              {(teacherFile || chatStatus) && (
+                <div className="teacher-chat-status">
+                  {teacherFile && <span>Прикреплен файл: {teacherFile.name}</span>}
+                  {chatStatus && <span>{chatStatus}</span>}
+                </div>
+              )}
 
               <div className="status-dropdown">
                 <button
@@ -432,6 +565,7 @@ export default function TeacherWork() {
                       ? "revision"
                       : "not-checked"
                   }`}
+                  disabled={isMarkingChecked}
                   onClick={() => setStatusMenuOpen(!statusMenuOpen)}
                 >
                   Статус работы

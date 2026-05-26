@@ -483,6 +483,15 @@ a {
   line-height: 1.4;
 }
 
+.teacher-message-file {
+  display: inline-block;
+  color: #00834f;
+  font-size: 14px;
+  font-weight: 700;
+  text-decoration: underline;
+  word-break: break-word;
+}
+
 /* ПАНЕЛЬ ОТПРАВКИ */
 
 .teacher-chat-bottom {
@@ -603,6 +612,21 @@ a {
 
 .teacher-submit-btn:hover {
   background: #006e3f;
+}
+
+.teacher-send-btn:disabled,
+.teacher-submit-btn:disabled {
+  cursor: wait;
+  opacity: 0.55;
+}
+
+.teacher-chat-status {
+  margin-top: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  color: #777777;
+  font-size: 12px;
 }
 
 /* УВЕДОМЛЕНИЕ ОБ УСПЕХЕ */
