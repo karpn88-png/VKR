@@ -234,6 +234,16 @@ a {
   cursor: pointer;
 }
 
+.ai-upload-box.dragging {
+  border-color: #007a49;
+  background: #e6f4ee;
+}
+
+.ai-upload-box.disabled {
+  cursor: wait;
+  opacity: 0.72;
+}
+
 .ai-upload-box b {
   color: #222222;
   font-size: 14px;
@@ -256,8 +266,48 @@ a {
   margin-top: 12px;
 }
 
+.ai-file-name {
+  margin-top: 12px;
+  color: #007a49;
+  font-size: 13px;
+  font-weight: 700;
+  word-break: break-word;
+}
+
+.ai-status {
+  margin-top: 8px;
+  min-height: 18px;
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.ai-status.muted {
+  color: #666666;
+}
+
+.ai-status.info {
+  color: #005d9a;
+}
+
+.ai-status.success {
+  color: #007a49;
+}
+
+.ai-status.error {
+  color: #b42323;
+}
+
+.ai-metrics {
+  margin-top: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  color: #333333;
+  font-size: 12px;
+}
+
 .ai-actions {
-  margin-top: 54px;
+  margin-top: 28px;
   display: flex;
   justify-content: space-between;
   gap: 28px;
@@ -296,6 +346,21 @@ a {
 .start-check-btn:hover {
   background: #00663d;
   border-color: #00663d;
+}
+
+.download-checked-btn:disabled,
+.start-check-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.download-checked-btn:disabled:hover {
+  background: transparent;
+}
+
+.start-check-btn:disabled:hover {
+  background: #007a49;
+  border-color: #007a49;
 }
 
 /* Статус работы */

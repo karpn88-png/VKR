@@ -9,6 +9,40 @@ import send from "../../assets/send.png";
 
 import { Link } from "react-router-dom";
 
+const API_BASE = import.meta.env.VITE_API_BASE ?? "/api";
+const SUPPORTED_WORK_EXTENSIONS = [".docx", ".doc", ".pdf", ".rtf", ".txt"];
+
+async function readApiResponse(response) {
+  const text = await response.text();
+  let data;
+
+  try {
+    data = text ? JSON.parse(text) : null;
+  } catch {
+    data = text;
+  }
+
+  if (!response.ok) {
+    const message =
+      data?.detail ||
+      data?.error ||
+      (typeof data === "string" && data) ||
+      `HTTP ${response.status}`;
+    throw new Error(typeof message === "string" ? message : JSON.stringify(message));
+  }
+
+  if (data?.error) {
+    throw new Error(data.details ? `${data.error}: ${data.details}` : data.error);
+  }
+
+  return data;
+}
+
+function isSupportedWorkFile(file) {
+  const name = file?.name?.toLowerCase() ?? "";
+  return SUPPORTED_WORK_EXTENSIONS.some((extension) => name.endsWith(extension));
+}
+
 export default function StudentWork() {
   const [profileOpen, setProfileOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
@@ -27,6 +61,15 @@ export default function StudentWork() {
     supervisor: "waiting",
     norm: "waiting",
   });
+  const [workFile, setWorkFile] = useState(null);
+  const [workDocId, setWorkDocId] = useState(null);
+  const [aiStatus, setAiStatus] = useState("Выберите файл работы для проверки.");
+  const [aiStatusKind, setAiStatusKind] = useState("muted");
+  const [aiAnalysis, setAiAnalysis] = useState(null);
+  const [aiReportReady, setAiReportReady] = useState(false);
+  const [isUploadingWork, setIsUploadingWork] = useState(false);
+  const [isCheckingWork, setIsCheckingWork] = useState(false);
+  const [isDraggingWork, setIsDraggingWork] = useState(false);
 
   const [finalSubmitted, setFinalSubmitted] = useState(false);
 
@@ -84,6 +127,8 @@ export default function StudentWork() {
   const currentStatus = selectedCheckType
     ? checkStatusMap[checkStatuses[selectedCheckType]]
     : checkStatusMap.waiting;
+  const aiBusy = isUploadingWork || isCheckingWork;
+  const canDownloadReport = Boolean(workDocId && aiReportReady && !aiBusy);
 
   const getWorkStages = () => {
     const stages = [
@@ -162,38 +207,113 @@ export default function StudentWork() {
     setAttachedFile(file);
   };
 
-  const handleAiFileClick = () => {
+  const updateAiCheckStatus = (status) => {
     setSelectedCheckType("ai");
 
     setCheckStatuses((prev) => ({
       ...prev,
-      ai: "notChecked",
+      ai: status,
     }));
+  };
+
+  const uploadWorkFile = async (file) => {
+    updateAiCheckStatus("notChecked");
+
+    if (!file) {
+      setAiStatus("Выберите файл работы.");
+      setAiStatusKind("error");
+      return null;
+    }
+
+    if (!isSupportedWorkFile(file)) {
+      setAiStatus("Поддерживаются файлы .docx, .doc, .pdf, .rtf и .txt.");
+      setAiStatusKind("error");
+      return null;
+    }
+
+    setIsUploadingWork(true);
+    setAiReportReady(false);
+    setAiAnalysis(null);
+    setAiStatus("Загружаем файл работы...");
+    setAiStatusKind("info");
+
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const response = await fetch(`${API_BASE}/upload`, {
+        method: "POST",
+        body: formData,
+      });
+      const data = await readApiResponse(response);
+
+      setWorkDocId(data.id);
+      setAiStatus(`Файл "${data.filename}" загружен. Можно запускать проверку.`);
+      setAiStatusKind("success");
+      return data.id;
+    } catch (error) {
+      setWorkDocId(null);
+      setAiStatus(`Не удалось загрузить файл: ${error.message}`);
+      setAiStatusKind("error");
+      return null;
+    } finally {
+      setIsUploadingWork(false);
+    }
+  };
+
+  const handleWorkFile = async (file) => {
+    if (!file) return;
+    setWorkFile(file);
+    await uploadWorkFile(file);
+  };
+
+  const startAiCheck = async () => {
+    if (aiBusy) return;
+
+    let docId = workDocId;
+
+    if (!docId) {
+      docId = await uploadWorkFile(workFile);
+    }
+
+    if (!docId) return;
+
+    updateAiCheckStatus("inProgress");
+    setIsCheckingWork(true);
+    setAiReportReady(false);
+    setAiStatus("Проверяем работу ИИ-модулем и формируем LLM-отчёт...");
+    setAiStatusKind("info");
+
+    try {
+      const response = await fetch(`${API_BASE}/analyze_document/${docId}`, {
+        method: "POST",
+      });
+      const data = await readApiResponse(response);
+
+      setAiAnalysis(data.analysis ?? null);
+      setAiReportReady(true);
+      setAiStatus("Проверка завершена. Отчёт готов к скачиванию.");
+      setAiStatusKind("success");
+      updateAiCheckStatus("checked");
+    } catch (error) {
+      setAiAnalysis(null);
+      setAiReportReady(false);
+      setAiStatus(`Проверка не выполнена: ${error.message}`);
+      setAiStatusKind("error");
+      updateAiCheckStatus("notChecked");
+    } finally {
+      setIsCheckingWork(false);
+    }
   };
 
   const handleDownloadCheckedFile = () => {
-    setSelectedCheckType("ai");
+    if (!canDownloadReport) {
+      setAiStatus("Сначала загрузите файл и завершите проверку.");
+      setAiStatusKind("error");
+      return;
+    }
 
-    setCheckStatuses((prev) => ({
-      ...prev,
-      ai: "checked",
-    }));
-
-    const link = document.createElement("a");
-    link.href = "/files/checked-work.docx";
-    link.download = "Проверенный_файл.docx";
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
-
-  const startAiCheck = () => {
-    setSelectedCheckType("ai");
-
-    setCheckStatuses((prev) => ({
-      ...prev,
-      ai: "inProgress",
-    }));
+    window.location.href = `${API_BASE}/report_word/${workDocId}`;
   };
 
   const openChatWithRecipient = (recipient) => {
@@ -417,20 +537,59 @@ export default function StudentWork() {
 
     <h3>Загрузите файл работы</h3>
 
-    <label className="ai-upload-box" onClick={handleAiFileClick}>
-      <input type="file" hidden accept=".docx,.doc,.pdf,.rtf" />
+    <label
+      className={`ai-upload-box ${isDraggingWork ? "dragging" : ""} ${
+        aiBusy ? "disabled" : ""
+      }`}
+      onDragOver={(event) => {
+        event.preventDefault();
+        if (!aiBusy) setIsDraggingWork(true);
+      }}
+      onDragLeave={() => setIsDraggingWork(false)}
+      onDrop={(event) => {
+        event.preventDefault();
+        setIsDraggingWork(false);
+        if (!aiBusy) {
+          handleWorkFile(event.dataTransfer.files?.[0] ?? null);
+        }
+      }}
+    >
+      <input
+        type="file"
+        hidden
+        accept=".docx,.doc,.pdf,.rtf,.txt"
+        disabled={aiBusy}
+        onChange={(event) => {
+          handleWorkFile(event.target.files?.[0] ?? null);
+          event.target.value = "";
+        }}
+      />
 
       <b>Перетащите или нажмите для выбора файла в эту область</b>
 
-      <span>Поддерживаемые форматы: .docx, .doc, .pdf, .rtf</span>
+      <span>Поддерживаемые форматы: .docx, .doc, .pdf, .rtf, .txt</span>
 
       <img src={clip} alt="file" className="clip-icon" />
     </label>
+
+    <div className="ai-file-name">
+      {workFile ? workFile.name : "Файл не выбран"}
+    </div>
+
+    <div className={`ai-status ${aiStatusKind}`}>{aiStatus}</div>
+
+    {aiAnalysis && (
+      <div className="ai-metrics">
+        <span>Слов: {aiAnalysis.total_words ?? "—"}</span>
+        <span>Уникальность: {aiAnalysis.uniqueness ?? "—"}%</span>
+      </div>
+    )}
 
     <div className="ai-actions">
       <button
         type="button"
         className="download-checked-btn"
+        disabled={!canDownloadReport}
         onClick={handleDownloadCheckedFile}
       >
         Скачать проверенный файл
@@ -439,9 +598,10 @@ export default function StudentWork() {
       <button
         type="button"
         className="start-check-btn"
+        disabled={aiBusy || !workFile || !isSupportedWorkFile(workFile)}
         onClick={startAiCheck}
       >
-        Запустить проверку
+        {isCheckingWork ? "Проверяем..." : "Запустить проверку"}
       </button>
     </div>
   </section>
