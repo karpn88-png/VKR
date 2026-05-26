@@ -19,6 +19,16 @@ import {
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? "/api";
 const SUPPORTED_WORK_EXTENSIONS = [".docx", ".doc", ".pdf", ".rtf", ".txt"];
+const DEFAULT_CHECK_CRITERIA = [
+  { id: "structure", title: "Соответствие типовой структуре ВКР" },
+  { id: "introduction", title: "Качество введения" },
+  { id: "theory", title: "Качество теоретической части" },
+  { id: "practice", title: "Качество практической части" },
+  { id: "goal_alignment", title: "Связь цели, задач, глав и заключения" },
+  { id: "style", title: "Научный стиль и связность текста" },
+  { id: "conclusions", title: "Полнота выводов и результатов" },
+  { id: "defense_risks", title: "Риски для допуска к защите" },
+];
 
 async function readApiResponse(response) {
   const text = await response.text();
@@ -82,6 +92,10 @@ export default function StudentWork() {
   const [isUploadingWork, setIsUploadingWork] = useState(false);
   const [isCheckingWork, setIsCheckingWork] = useState(false);
   const [isDraggingWork, setIsDraggingWork] = useState(false);
+  const [checkCriteria, setCheckCriteria] = useState(DEFAULT_CHECK_CRITERIA);
+  const [selectedPromptChecks, setSelectedPromptChecks] = useState(
+    DEFAULT_CHECK_CRITERIA.map((item) => item.id)
+  );
 
   const [finalSubmitted, setFinalSubmitted] = useState(false);
 
@@ -145,6 +159,7 @@ export default function StudentWork() {
     : checkStatusMap.waiting;
   const aiBusy = isUploadingWork || isCheckingWork;
   const canDownloadReport = Boolean(workDocId && aiReportReady && !aiBusy);
+  const selectedPromptCheckCount = selectedPromptChecks.length;
 
   const getWorkStages = () => {
     const stages = [
@@ -268,6 +283,39 @@ export default function StudentWork() {
     };
   }, [activeChatRecipient, chatModalOpen, loadChatThread]);
 
+  useEffect(() => {
+    let cancelled = false;
+
+    fetch(`${API_BASE}/analysis_criteria`)
+      .then(readApiResponse)
+      .then((items) => {
+        if (cancelled || !Array.isArray(items) || items.length === 0) return;
+
+        const normalizedItems = items
+          .filter((item) => item?.id && item?.title)
+          .map((item) => ({
+            id: item.id,
+            title: item.title,
+          }));
+
+        if (normalizedItems.length === 0) return;
+
+        setCheckCriteria(normalizedItems);
+        setSelectedPromptChecks((prev) => {
+          const allowedIds = new Set(normalizedItems.map((item) => item.id));
+          const keptIds = prev.filter((id) => allowedIds.has(id));
+          return keptIds.length > 0 ? keptIds : normalizedItems.map((item) => item.id);
+        });
+      })
+      .catch(() => {
+        // Если backend еще старый, остаемся на локальном списке критериев.
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const handleAttachFile = (e) => {
     const file = e.target.files[0];
 
@@ -337,8 +385,22 @@ export default function StudentWork() {
     await uploadWorkFile(file);
   };
 
+  const togglePromptCheck = (id) => {
+    setSelectedPromptChecks((prev) =>
+      prev.includes(id)
+        ? prev.filter((item) => item !== id)
+        : [...prev, id]
+    );
+  };
+
   const startAiCheck = async () => {
     if (aiBusy) return;
+
+    if (selectedPromptCheckCount === 0) {
+      setAiStatus("Выберите хотя бы один пункт LLM-проверки.");
+      setAiStatusKind("error");
+      return;
+    }
 
     let docId = workDocId;
 
@@ -357,6 +419,12 @@ export default function StudentWork() {
     try {
       const response = await fetch(`${API_BASE}/analyze_document/${docId}`, {
         method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          selected_checks: selectedPromptChecks,
+        }),
       });
       const data = await readApiResponse(response);
 
@@ -613,6 +681,47 @@ export default function StudentWork() {
 
     <h3>Загрузите файл работы</h3>
 
+    <div className="ai-criteria-panel">
+      <div className="ai-criteria-header">
+        <b>Пункты LLM-проверки</b>
+        <span>
+          Выбрано {selectedPromptCheckCount} из {checkCriteria.length}
+        </span>
+      </div>
+
+      <div className="ai-criteria-actions">
+        <button
+          type="button"
+          disabled={aiBusy}
+          onClick={() => setSelectedPromptChecks(checkCriteria.map((item) => item.id))}
+        >
+          Выбрать все
+        </button>
+
+        <button
+          type="button"
+          disabled={aiBusy}
+          onClick={() => setSelectedPromptChecks([])}
+        >
+          Снять выбор
+        </button>
+      </div>
+
+      <div className="ai-criteria-list">
+        {checkCriteria.map((item) => (
+          <label className="ai-criteria-item" key={item.id}>
+            <input
+              type="checkbox"
+              checked={selectedPromptChecks.includes(item.id)}
+              disabled={aiBusy}
+              onChange={() => togglePromptCheck(item.id)}
+            />
+            <span>{item.title}</span>
+          </label>
+        ))}
+      </div>
+    </div>
+
     <label
       className={`ai-upload-box ${isDraggingWork ? "dragging" : ""} ${
         aiBusy ? "disabled" : ""
@@ -674,7 +783,12 @@ export default function StudentWork() {
       <button
         type="button"
         className="start-check-btn"
-        disabled={aiBusy || !workFile || !isSupportedWorkFile(workFile)}
+        disabled={
+          aiBusy ||
+          !workFile ||
+          !isSupportedWorkFile(workFile) ||
+          selectedPromptCheckCount === 0
+        }
         onClick={startAiCheck}
       >
         {isCheckingWork ? "Проверяем..." : "Запустить проверку"}

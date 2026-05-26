@@ -9,7 +9,7 @@ from urllib.parse import quote
 from zoneinfo import ZoneInfo
 
 import requests
-from fastapi import FastAPI, HTTPException, UploadFile, File, Form
+from fastapi import FastAPI, HTTPException, UploadFile, File, Form, Body
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 
@@ -19,7 +19,7 @@ from sqlalchemy import create_engine, Column, Integer, String, LargeBinary, Date
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import sessionmaker, declarative_base
 
-from gigachat_client import generate_report
+from gigachat_client import CHECK_CRITERIA, generate_report, get_selected_criteria
 
 # ============================================================
 # DATABASE SETUP
@@ -671,9 +671,31 @@ def get_document(doc_id: int):
     }
 
 
+@app.get("/analysis_criteria")
+def analysis_criteria():
+    """Вернуть пункты промпта, доступные для выбора перед LLM-проверкой."""
+    return [
+        {
+            "id": item["id"],
+            "title": item["title"],
+            "instruction": item["instruction"],
+        }
+        for item in CHECK_CRITERIA
+    ]
+
+
 @app.post("/analyze_document/{doc_id}")
-def analyze_document(doc_id: int):
+def analyze_document(doc_id: int, payload: dict | None = Body(default=None)):
     """Извлечь текст из файла, отправить в AI-модуль, сгенерировать LLM-отчёт и сохранить его в БД"""
+    selected_checks = []
+    if isinstance(payload, dict) and isinstance(payload.get("selected_checks"), list):
+        selected_checks = [
+            str(item)
+            for item in payload.get("selected_checks", [])
+            if isinstance(item, str)
+        ]
+    selected_criteria = get_selected_criteria(selected_checks)
+
     db = SessionLocal()
     doc = db.query(Document).filter(Document.id == doc_id).first()
     db.close()
@@ -732,6 +754,8 @@ def analyze_document(doc_id: int):
         "embedding_model": analysis.get("embedding_model"),
         "embedding_error": analysis.get("embedding_error"),
         "embedding_vector": embedding_vector,
+        "selected_checks": [item["id"] for item in selected_criteria],
+        "selected_check_titles": [item["title"] for item in selected_criteria],
     }
     llm_signals = {
         "total_words": brief["total_words"],
@@ -740,6 +764,7 @@ def analyze_document(doc_id: int):
         "embedding_dim": brief["embedding_dim"],
         "embedding_source": brief["embedding_source"],
         "embedding_model": brief["embedding_model"],
+        "selected_checks": brief["selected_check_titles"],
     }
 
     # ============================================================
@@ -749,7 +774,8 @@ def analyze_document(doc_id: int):
     try:
         llm_report = generate_report(
             text,
-            local_signals={"local_analysis_summary": llm_signals}
+            local_signals={"local_analysis_summary": llm_signals},
+            selected_checks=brief["selected_checks"],
         )
     except Exception as e:
         llm_report = f"[GigaChat error] {e}"
@@ -770,6 +796,7 @@ def analyze_document(doc_id: int):
     return {
         "filename": filename,
         "analysis": llm_signals,
+        "selected_checks": brief["selected_checks"],
         "llm_report": llm_report
     }
 
@@ -808,6 +835,14 @@ def report_word(doc_id: int):
     d.add_paragraph(f"embedding_dim: {a.get('embedding_dim')}")
     d.add_paragraph(f"embedding_source: {a.get('embedding_source')}")
     d.add_paragraph(f"embedding_model: {a.get('embedding_model')}")
+
+    d.add_heading("Выбранные пункты LLM-проверки", level=2)
+    selected_titles = a.get("selected_check_titles") or []
+    if selected_titles:
+        for title in selected_titles:
+            d.add_paragraph(str(title), style="List Bullet")
+    else:
+        d.add_paragraph("Использован полный набор критериев проверки.")
 
     d.add_heading("Отчёт LLM", level=2)
     add_multiline_report(d, result.llm_report)
@@ -860,6 +895,8 @@ def get_reports(doc_id: int):
                 "embedding_dim": r.analysis_json.get("embedding_dim") if r.analysis_json else None,
                 "embedding_source": r.analysis_json.get("embedding_source") if r.analysis_json else None,
                 "embedding_model": r.analysis_json.get("embedding_model") if r.analysis_json else None,
+                "selected_checks": r.analysis_json.get("selected_checks") if r.analysis_json else None,
+                "selected_check_titles": r.analysis_json.get("selected_check_titles") if r.analysis_json else None,
             }
         }
         for r in results
