@@ -1,0 +1,51 @@
+.empty-page {
+  width: 100%;
+  height: 100vh;
+
+  display: flex;
+  justify-content: center;
+  align-items: center;
+
+  background: white;
+}
+
+.empty-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 30px;
+}
+
+.empty-text {
+  font-size: 34px;
+  font-weight: 700;
+
+  color: #007a49;
+
+  padding: 30px 50px;
+
+  border: 2px dashed #007a49;
+  border-radius: 20px;
+
+  background: #f7fffb;
+}
+
+.back-btn {
+  padding: 14px 28px;
+
+  background: #007a49;
+  color: white;
+
+  border-radius: 12px;
+
+  text-decoration: none;
+
+  font-size: 18px;
+  font-weight: 600;
+
+  transition: 0.2s;
+}
+
+.back-btn:hover {
+  background: #005f39;
+}
