@@ -151,7 +151,38 @@ STUDENT_PROFILE = {
     "group": "АТ-23",
     "topic": "Разработка информационной системы",
     "teacher": "Бакаев Максим Александрович",
+    "default_status": "Не проверено",
+    "grade": "",
+    "teacherGrade": "",
 }
+
+STUDENT_PROFILES = [
+    STUDENT_PROFILE,
+    {
+        "id": 2,
+        "fio": "Сидорова Анна Петровна",
+        "short_name": "Сидорова А. П.",
+        "group": "АТ-24",
+        "topic": "Разработка мобильного приложения",
+        "teacher": "Бакаев Максим Александрович",
+        "default_status": "На проверке",
+        "grade": "",
+        "teacherGrade": "",
+        "demo": True,
+    },
+    {
+        "id": 3,
+        "fio": "Петров Алексей Дмитриевич",
+        "short_name": "Петров А. Д.",
+        "group": "АО-22",
+        "topic": "Разработка базы данных",
+        "teacher": "Бакаев Максим Александрович",
+        "default_status": "Требуется доработка",
+        "grade": "",
+        "teacherGrade": "",
+        "demo": True,
+    },
+]
 
 TEACHER_PROFILE = {
     "short_name": "Бакаев М. А.",
@@ -190,6 +221,13 @@ def message_belongs_to_role(message: WorkMessage, role: str | None) -> bool:
     profile = recipient_profile_for_role(normalized)
     names = {profile["short_name"], profile["full_name"]}
     return message.sender_role == normalized or message.recipient_name in names
+
+
+def get_student_profile(student_id: int) -> dict:
+    return next(
+        (profile for profile in STUDENT_PROFILES if profile["id"] == student_id),
+        STUDENT_PROFILE,
+    )
 
 
 def extract_rtf_text(content: bytes) -> str:
@@ -254,12 +292,16 @@ def run_ai_analysis(text: str) -> dict:
     )
 
 
-def get_or_create_work_state(db, student_id: int) -> WorkThreadState:
+def get_or_create_work_state(
+    db,
+    student_id: int,
+    default_status: str = "Не проверено",
+) -> WorkThreadState:
     state = db.query(WorkThreadState).filter(WorkThreadState.student_id == student_id).first()
     if state:
         return state
 
-    state = WorkThreadState(student_id=student_id, status="Не проверено")
+    state = WorkThreadState(student_id=student_id, status=default_status)
     db.add(state)
     db.commit()
     db.refresh(state)
@@ -284,7 +326,12 @@ def serialize_work_message(message: WorkMessage) -> dict:
 
 
 def serialize_work_thread(db, student_id: int, recipient_role: str | None = None) -> dict:
-    state = get_or_create_work_state(db, student_id)
+    student_profile = get_student_profile(student_id)
+    state = get_or_create_work_state(
+        db,
+        student_id,
+        student_profile.get("default_status", "Не проверено"),
+    )
     all_messages = (
         db.query(WorkMessage)
         .filter(WorkMessage.student_id == student_id)
@@ -298,7 +345,7 @@ def serialize_work_thread(db, student_id: int, recipient_role: str | None = None
     ]
 
     return {
-        "student": STUDENT_PROFILE,
+        "student": student_profile,
         "teacher": TEACHER_PROFILE,
         "normcontrol": NORMCONTROL_PROFILE,
         "status": state.status,
@@ -328,21 +375,28 @@ app.add_middleware(
 @app.get("/teacher_students")
 def list_teacher_students(recipient_role: str = "teacher"):
     db = SessionLocal()
-    state = get_or_create_work_state(db, STUDENT_PROFILE["id"])
-    db.close()
-
-    return [
-        {
-            "id": STUDENT_PROFILE["id"],
-            "fio": STUDENT_PROFILE["fio"],
-            "group": STUDENT_PROFILE["group"],
-            "topic": STUDENT_PROFILE["topic"],
-            "teacher": TEACHER_PROFILE["short_name"],
-            "grade": "",
-            "teacherGrade": "",
-            "status": state.status,
-        }
-    ]
+    try:
+        students = []
+        for profile in STUDENT_PROFILES:
+            state = get_or_create_work_state(
+                db,
+                profile["id"],
+                profile.get("default_status", "Не проверено"),
+            )
+            students.append({
+                "id": profile["id"],
+                "fio": profile["fio"],
+                "group": profile["group"],
+                "topic": profile["topic"],
+                "teacher": TEACHER_PROFILE["short_name"],
+                "grade": profile.get("grade", ""),
+                "teacherGrade": profile.get("teacherGrade", ""),
+                "status": state.status,
+                "demo": bool(profile.get("demo")),
+            })
+        return students
+    finally:
+        db.close()
 
 
 @app.get("/work_thread/{student_id}")
@@ -478,6 +532,7 @@ async def submit_work(
 def mark_work_checked(student_id: int, checker_role: str = Form(default="teacher")):
     checker_role = normalize_work_role(checker_role)
     checker = recipient_profile_for_role(checker_role)
+    student_profile = get_student_profile(student_id)
 
     db = SessionLocal()
     try:
@@ -489,7 +544,7 @@ def mark_work_checked(student_id: int, checker_role: str = Form(default="teacher
             student_id=student_id,
             sender_role=checker_role,
             sender_name=checker["short_name"],
-            recipient_name=STUDENT_PROFILE["fio"],
+            recipient_name=student_profile["fio"],
             text='Работа отмечена как "Проверено".',
             message_type="status",
         )
