@@ -35,6 +35,7 @@ function App() {
         <Route path="/" element={<StudentHome />} />
         <Route path="/cabinet" element={<StudentCabinet />} />
         <Route path="/gost" element={<GOST />} />
+        <Route path="/templates" element={<GOST />} />
         <Route path="/teachers" element={<Teachers />} />
         <Route path="/topics" element={<VKRTopic />} />
         <Route path="/archive" element={<VKRArchive />} />

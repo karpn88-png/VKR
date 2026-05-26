@@ -14,17 +14,6 @@ export default function NormView() {
   const [profileOpen, setProfileOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [supportOpen, setSupportOpen] = useState(false);
-  const [isEditing, setIsEditing] = useState({
-  email: false,
-  phone: false,
-  additionalContact: false,
-});
-const handleEditClick = (field) => {
-  setIsEditing((prevState) => ({
-    ...prevState,
-    [field]: !prevState[field],  // Переключаем состояние редактирования для конкретного поля
-  }));
-};
 
   return (
     <div className="page">

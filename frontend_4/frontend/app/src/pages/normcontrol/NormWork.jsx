@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import "./NormWork.css";
 
 import logo from "../../assets/logo.png";
@@ -50,7 +50,6 @@ export default function NormWork() {
       status: "На проверке",
       grade: "",
       teacher: "Бакаев М. А.",
-      teacher: "Бакаев М. А.",
       teacherGrade: "",
     },
     {
@@ -60,7 +59,6 @@ export default function NormWork() {
       topic: "Разработка базы данных",
       status: "Требуется доработка",
       grade: "",
-      teacher: "Бакаев М. А.",
       teacher: "Бакаев М. А.",
       teacherGrade: "",
     },
@@ -78,9 +76,10 @@ export default function NormWork() {
     return groupMatch && statusMatch && searchMatch;
   });
 
-  const currentMessages = selectedStudent
-    ? teacherMessagesByStudent[selectedStudent.id] || []
-    : [];
+  const currentMessages = useMemo(
+    () => (selectedStudent ? teacherMessagesByStudent[selectedStudent.id] || [] : []),
+    [selectedStudent, teacherMessagesByStudent]
+  );
 
   const sendTeacherMessage = () => {
     if (!teacherMessage.trim() || !selectedStudent) return;

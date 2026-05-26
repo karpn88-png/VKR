@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import "./TeacherWork.css";
 
 import logo from "../../assets/logo.png";
@@ -70,9 +70,10 @@ export default function TeacherWork() {
     return groupMatch && statusMatch && searchMatch;
   });
 
-  const currentMessages = selectedStudent
-    ? teacherMessagesByStudent[selectedStudent.id] || []
-    : [];
+  const currentMessages = useMemo(
+    () => (selectedStudent ? teacherMessagesByStudent[selectedStudent.id] || [] : []),
+    [selectedStudent, teacherMessagesByStudent]
+  );
 
   const sendTeacherMessage = () => {
     if (!teacherMessage.trim() || !selectedStudent) return;
