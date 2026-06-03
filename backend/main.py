@@ -766,8 +766,8 @@ def update_work_grades(
     if target_role not in {"teacher", "normcontrol"}:
         raise HTTPException(status_code=400, detail="target_role must be teacher or normcontrol")
 
-    if actor_role == "teacher" and target_role != "teacher":
-        raise HTTPException(status_code=403, detail="Teacher can change only teacher grades")
+    if actor_role != target_role:
+        raise HTTPException(status_code=403, detail="Users can change only their own role grades")
 
     grades = payload.get("grades")
     if not isinstance(grades, dict):

@@ -21,7 +21,6 @@ import {
 
 const NORMCONTROL_ROLE = "normcontrol";
 const NORMCONTROL_NAME = "Герасимов А. К.";
-const TEACHER_ROLE = "teacher";
 
 const emptyGrades = {
   preliminary: "",
@@ -748,7 +747,7 @@ export default function NormWork() {
         </span>
       </td>
 
-      <td>{renderGradesCell(student.teacherGrades, student, TEACHER_ROLE)}</td>
+      <td>{renderGradesCell(student.teacherGrades)}</td>
 
       <td>
         <button
