@@ -57,7 +57,7 @@ services:
       - ./backend/.env
 
   frontend:
-    build: ./frontend_4/frontend/app
+    build: ./frontend_5/app
     container_name: frontend
     expose:
       - "80"

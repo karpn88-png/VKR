@@ -1684,3 +1684,27 @@ a {
   font-weight: 700;
   border-color: #00834f;
 }
+
+.teacher-message-file {
+  display: inline-block;
+  color: #00834f;
+  font-size: 14px;
+  font-weight: 700;
+  text-decoration: underline;
+  word-break: break-word;
+}
+
+.teacher-send-btn:disabled,
+.teacher-submit-btn:disabled,
+.status-btn:disabled {
+  cursor: wait;
+  opacity: 0.55;
+}
+
+.teacher-chat-status {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  color: #777;
+  font-size: 12px;
+}

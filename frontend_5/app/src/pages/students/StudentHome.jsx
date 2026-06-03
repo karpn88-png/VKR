@@ -18,17 +18,9 @@ import { Link } from "react-router-dom";
 export default function StudentHome() {
   const [profileOpen, setProfileOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
-  const [showAllNotifications, setShowAllNotifications] = useState(false);
   const [supportOpen, setSupportOpen] = useState(false);
-  
 
   const notifications = [];
-
-  const visibleNotifications = showAllNotifications
-    ? notifications
-    : notifications.filter((item) => item.unread);
-
-  const [fileName, setFileName] = useState("");
 
   return (
     <div className="page">
@@ -47,10 +39,7 @@ export default function StudentHome() {
         <button
           className="bell"
           type="button"
-          onClick={() => {
-            setNotificationsOpen(true);
-            setShowAllNotifications(false);
-          }}
+          onClick={() => setNotificationsOpen(true)}
         >
           <img src={bell} alt="Уведомления" />
           <span>{notifications.filter((item) => item.unread).length}</span>
@@ -106,10 +95,7 @@ export default function StudentHome() {
   <button
     className="all-link"
     type="button"
-    onClick={() => {
-      setNotificationsOpen(true);
-      setShowAllNotifications(true);
-    }}
+    onClick={() => setNotificationsOpen(true)}
   >
     Все уведомления
   </button>

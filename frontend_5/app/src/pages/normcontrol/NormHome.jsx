@@ -15,14 +15,9 @@ import { Link } from "react-router-dom";
 export default function NormHome() {
   const [profileOpen, setProfileOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
-  const [showAllNotifications, setShowAllNotifications] = useState(false);
   const [supportOpen, setSupportOpen] = useState(false);
 
   const notifications = [];
-
-  const visibleNotifications = showAllNotifications
-    ? notifications
-    : notifications.filter((item) => item.unread);
 
   const [normprofilePhoto] = useState(() => {
   return localStorage.getItem("normProfilePhoto") || avatar;
@@ -45,10 +40,7 @@ export default function NormHome() {
         <button
           className="bell"
           type="button"
-          onClick={() => {
-            setNotificationsOpen(true);
-            setShowAllNotifications(false);
-          }}
+          onClick={() => setNotificationsOpen(true)}
         >
           <img src={bell} alt="Уведомления" />
           <span>{notifications.filter((item) => item.unread).length}</span>
@@ -106,10 +98,7 @@ export default function NormHome() {
           <button
             className="all-link"
             type="button"
-            onClick={() => {
-              setNotificationsOpen(true);
-              setShowAllNotifications(true);
-            }}
+            onClick={() => setNotificationsOpen(true)}
           >
             Все уведомления
           </button>

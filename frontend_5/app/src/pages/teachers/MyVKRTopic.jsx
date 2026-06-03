@@ -4,7 +4,6 @@ import "./MyVKRTopic.css";
 
 import logo from "../../assets/logo.png";
 import bell from "../../assets/bell.png";
-import avatar from "../../assets/ava.png";
 import clip from "../../assets/clip.png";
 import support from "../../assets/help.png";
 import edit from "../../assets/edit.png";

@@ -227,9 +227,20 @@ def message_belongs_to_role(message: WorkMessage, role: str | None) -> bool:
     if normalized not in {"teacher", "normcontrol"}:
         return True
 
-    profile = recipient_profile_for_role(normalized)
-    names = {profile["short_name"], profile["full_name"]}
-    return message.sender_role == normalized or message.recipient_name in names
+    norm_names = {
+        NORMCONTROL_PROFILE["short_name"],
+        NORMCONTROL_PROFILE["full_name"],
+    }
+    recipient_name = message.recipient_name or ""
+
+    if normalized == "normcontrol":
+        return message.sender_role == "normcontrol" or (
+            message.sender_role == "student" and recipient_name in norm_names
+        )
+
+    return message.sender_role == "teacher" or (
+        message.sender_role == "student" and recipient_name not in norm_names
+    )
 
 
 def get_student_profile(student_id: int) -> dict:
@@ -827,14 +838,7 @@ def report_word(doc_id: int):
     d.add_paragraph(f"Файл: {doc.filename}")
     d.add_paragraph(f"Дата: {format_local_datetime(result.created_at)}")
 
-    d.add_heading("Метрики текста", level=2)
     a = result.analysis_json or {}
-    d.add_paragraph(f"total_words: {a.get('total_words')}")
-    d.add_paragraph(f"unique_words: {a.get('unique_words')}")
-    d.add_paragraph(f"uniqueness: {a.get('uniqueness')}")
-    d.add_paragraph(f"embedding_dim: {a.get('embedding_dim')}")
-    d.add_paragraph(f"embedding_source: {a.get('embedding_source')}")
-    d.add_paragraph(f"embedding_model: {a.get('embedding_model')}")
 
     d.add_heading("Выбранные пункты LLM-проверки", level=2)
     selected_titles = a.get("selected_check_titles") or []
@@ -843,6 +847,14 @@ def report_word(doc_id: int):
             d.add_paragraph(str(title), style="List Bullet")
     else:
         d.add_paragraph("Использован полный набор критериев проверки.")
+
+    d.add_heading("Метрики текста", level=2)
+    d.add_paragraph(f"total_words: {a.get('total_words')}")
+    d.add_paragraph(f"unique_words: {a.get('unique_words')}")
+    d.add_paragraph(f"uniqueness: {a.get('uniqueness')}")
+    d.add_paragraph(f"embedding_dim: {a.get('embedding_dim')}")
+    d.add_paragraph(f"embedding_source: {a.get('embedding_source')}")
+    d.add_paragraph(f"embedding_model: {a.get('embedding_model')}")
 
     d.add_heading("Отчёт LLM", level=2)
     add_multiline_report(d, result.llm_report)

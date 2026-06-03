@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import "./NormWork.css";
 
 import logo from "../../assets/logo.png";
@@ -9,6 +9,34 @@ import support from "../../assets/help.png";
 import send from "../../assets/send.png";
 
 import { Link } from "react-router-dom";
+import {
+  formatAppDateTime,
+  getAttachmentUrl,
+  getTeacherStudents,
+  getWorkThread,
+  sendWorkMessage,
+  updateStudentWorkStatus,
+} from "../../api/workThread";
+
+const NORMCONTROL_ROLE = "normcontrol";
+const NORMCONTROL_NAME = "Герасимов А. К.";
+
+const emptyGrades = {
+  preliminary: "",
+  defense: "",
+  final: "",
+};
+
+const normalizeNormStudent = (student) => ({
+  ...student,
+  teacherStatus: student.teacherStatus ?? "Проверено",
+  teacherGrades: student.teacherGrades ?? { ...emptyGrades },
+  normStatus: student.normStatus ?? student.status ?? "Не проверено",
+  normGrades: student.normGrades ?? {
+    ...emptyGrades,
+    final: student.grade ?? "",
+  },
+});
 
 export default function NormWork() {
   const [profileOpen, setProfileOpen] = useState(false);
@@ -19,7 +47,11 @@ export default function NormWork() {
   const [selectedStudent, setSelectedStudent] = useState(null);
 
   const [teacherMessage, setTeacherMessage] = useState("");
+  const [teacherFile, setTeacherFile] = useState(null);
   const [teacherMessagesByStudent, setTeacherMessagesByStudent] = useState({});
+  const [chatStatus, setChatStatus] = useState("");
+  const [isSendingMessage, setIsSendingMessage] = useState(false);
+  const [isMarkingChecked, setIsMarkingChecked] = useState(false);
 
   const [successMessage, setSuccessMessage] = useState(false);
   const [gradeMessage, setGradeMessage] = useState(false);
@@ -188,9 +220,78 @@ export default function NormWork() {
     return groupMatch && statusMatch && searchMatch && teacherSearchMatch;
   });
 
-  const currentMessages = selectedStudent
-    ? teacherMessagesByStudent[selectedStudent.id] || []
-    : [];
+  const currentMessages = useMemo(
+    () => (selectedStudent ? teacherMessagesByStudent[selectedStudent.id] || [] : []),
+    [selectedStudent, teacherMessagesByStudent]
+  );
+  const selectedStudentId = selectedStudent?.id;
+
+  const applyStudentStatus = useCallback((studentId, status) => {
+    setStudents((prevStudents) =>
+      prevStudents.map((student) =>
+        student.id === studentId ? { ...student, normStatus: status } : student
+      )
+    );
+
+    setSelectedStudent((prevStudent) =>
+      prevStudent && prevStudent.id === studentId
+        ? { ...prevStudent, normStatus: status }
+        : prevStudent
+    );
+  }, []);
+
+  const loadStudents = useCallback(async () => {
+    try {
+      const loadedStudents = await getTeacherStudents(NORMCONTROL_ROLE);
+      setStudents(loadedStudents.map(normalizeNormStudent));
+    } catch (error) {
+      setChatStatus(`Не удалось загрузить студентов: ${error.message}`);
+    }
+  }, []);
+
+  const loadNormThread = useCallback(async (studentId) => {
+    try {
+      const thread = await getWorkThread(studentId, NORMCONTROL_ROLE);
+      setTeacherMessagesByStudent((prev) => ({
+        ...prev,
+        [studentId]: thread.messages ?? [],
+      }));
+      applyStudentStatus(studentId, thread.status ?? "Не проверено");
+      setChatStatus("");
+    } catch (error) {
+      setChatStatus(`Не удалось загрузить переписку: ${error.message}`);
+    }
+  }, [applyStudentStatus]);
+
+  useEffect(() => {
+    const initial = window.setTimeout(() => {
+      void loadStudents();
+    }, 0);
+    const timer = window.setInterval(() => {
+      void loadStudents();
+    }, 5000);
+
+    return () => {
+      window.clearTimeout(initial);
+      window.clearInterval(timer);
+    };
+  }, [loadStudents]);
+
+  useEffect(() => {
+    if (!studentWorkOpen || !selectedStudentId) return undefined;
+
+    const initial = window.setTimeout(() => {
+      void loadNormThread(selectedStudentId);
+    }, 0);
+    const timer = window.setInterval(() => {
+      void loadNormThread(selectedStudentId);
+    }, 5000);
+
+    return () => {
+      window.clearTimeout(initial);
+      window.clearInterval(timer);
+    };
+  }, [loadNormThread, selectedStudentId, studentWorkOpen]);
 
   const getStatusClass = (status) => {
     if (status === "Проверено") return "checked";
@@ -199,49 +300,69 @@ export default function NormWork() {
     return "not-checked";
   };
 
-  const sendTeacherMessage = () => {
-    if (!teacherMessage.trim() || !selectedStudent) return;
+  const sendTeacherMessage = async () => {
+    if (isSendingMessage || !selectedStudent) return;
 
-    const newMessage = {
-      id: Date.now(),
-      text: teacherMessage,
-      sender: "Герасимов А. К.",
-      date: new Date().toLocaleDateString("ru-RU"),
-      time: new Date().toLocaleTimeString([], {
-        hour: "2-digit",
-        minute: "2-digit",
-      }),
-    };
+    if (!teacherMessage.trim() && !teacherFile) {
+      setChatStatus("Введите сообщение или прикрепите файл.");
+      return;
+    }
 
-    setTeacherMessagesByStudent((prev) => ({
-      ...prev,
-      [selectedStudent.id]: [...(prev[selectedStudent.id] || []), newMessage],
-    }));
+    setIsSendingMessage(true);
+    setChatStatus("Отправляем сообщение...");
 
-    setTeacherMessage("");
+    try {
+      await sendWorkMessage(selectedStudent.id, {
+        senderRole: NORMCONTROL_ROLE,
+        senderName: NORMCONTROL_NAME,
+        recipientName: selectedStudent.fio,
+        text: teacherMessage,
+        file: teacherFile,
+      });
+      setTeacherMessage("");
+      setTeacherFile(null);
+      await loadNormThread(selectedStudent.id);
+      setChatStatus("Сообщение отправлено.");
+    } catch (error) {
+      setChatStatus(`Не удалось отправить сообщение: ${error.message}`);
+    } finally {
+      setIsSendingMessage(false);
+    }
   };
 
-  const updateStudentStatus = (newStatus) => {
+  const persistStudentStatus = async (student, newStatus) => {
+    if (!student || isMarkingChecked) return;
+
+    setIsMarkingChecked(true);
+    setChatStatus("Обновляем статус работы...");
+
+    try {
+      const thread = await updateStudentWorkStatus(
+        student.id,
+        newStatus,
+        NORMCONTROL_ROLE
+      );
+      setTeacherMessagesByStudent((prev) => ({
+        ...prev,
+        [student.id]: thread.messages ?? prev[student.id] ?? [],
+      }));
+      applyStudentStatus(student.id, thread.status ?? newStatus);
+      setChatStatus("Статус работы обновлен.");
+      setSuccessMessage(true);
+      setTimeout(() => {
+        setSuccessMessage(false);
+      }, 3000);
+    } catch (error) {
+      setChatStatus(`Не удалось обновить статус: ${error.message}`);
+    } finally {
+      setIsMarkingChecked(false);
+    }
+  };
+
+  const updateStudentStatus = async (newStatus) => {
     if (!selectedStudent) return;
-
-    setStudents((prevStudents) =>
-      prevStudents.map((student) =>
-        student.id === selectedStudent.id
-          ? { ...student, normStatus: newStatus }
-          : student
-      )
-    );
-
-    setSelectedStudent((prevStudent) =>
-      prevStudent ? { ...prevStudent, normStatus: newStatus } : prevStudent
-    );
-
     setStatusMenuOpen(false);
-    setSuccessMessage(true);
-
-    setTimeout(() => {
-      setSuccessMessage(false);
-    }, 3000);
+    await persistStudentStatus(selectedStudent, newStatus);
   };
 
   const cycleNormStatus = (student) => {
@@ -254,19 +375,7 @@ export default function NormWork() {
 
     const currentIndex = statuses.indexOf(student.normStatus);
     const nextStatus = statuses[(currentIndex + 1) % statuses.length];
-
-    setStudents((prevStudents) =>
-      prevStudents.map((item) =>
-        item.id === student.id ? { ...item, normStatus: nextStatus } : item
-      )
-    );
-
-    if (selectedStudent?.id === student.id) {
-      setSelectedStudent((prevStudent) => ({
-        ...prevStudent,
-        normStatus: nextStatus,
-      }));
-    }
+    void persistStudentStatus(student, nextStatus);
   };
 
   const openStudentWork = (student) => {
@@ -274,6 +383,10 @@ export default function NormWork() {
     setStudentWorkOpen(true);
     setStatusMenuOpen(false);
     setGradeOpen(false);
+    setTeacherMessage("");
+    setTeacherFile(null);
+    setChatStatus("Загружаем переписку...");
+    void loadNormThread(student.id);
 
     setGradeDraft({
       preliminary: student.normGrades?.preliminary || "",
@@ -579,6 +692,7 @@ export default function NormWork() {
         <button
           type="button"
           className={`status-btn ${getStatusClass(student.normStatus)}`}
+          disabled={isMarkingChecked}
           onClick={() => cycleNormStatus(student)}
         >
           {student.normStatus}
@@ -645,15 +759,28 @@ export default function NormWork() {
                   <div className="teacher-message" key={msg.id}>
                     <div className="teacher-message-header">
                       <span className="teacher-message-author">
-                        {msg.sender}
+                        {msg.sender_name}
                       </span>
 
                       <span className="teacher-message-date">
-                        {msg.date} {msg.time}
+                        {formatAppDateTime(msg.created_at)}
                       </span>
                     </div>
 
-                    <div className="teacher-message-text">{msg.text}</div>
+                    {msg.text && (
+                      <div className="teacher-message-text">{msg.text}</div>
+                    )}
+
+                    {msg.has_file && (
+                      <a
+                        className="teacher-message-file"
+                        href={getAttachmentUrl(msg.download_url)}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        {msg.file_name}
+                      </a>
+                    )}
                   </div>
                 ))
               )}
@@ -708,7 +835,14 @@ export default function NormWork() {
               <div className="teacher-chat-input">
                 <label className="teacher-attach-btn">
                   <img src={clip} alt="file" className="clip-icon" />
-                  <input type="file" hidden />
+                  <input
+                    type="file"
+                    hidden
+                    onChange={(event) => {
+                      setTeacherFile(event.target.files?.[0] ?? null);
+                      event.target.value = "";
+                    }}
+                  />
                 </label>
 
                 <input
@@ -727,11 +861,19 @@ export default function NormWork() {
                 <button
                   className="teacher-send-btn"
                   type="button"
+                  disabled={isSendingMessage}
                   onClick={sendTeacherMessage}
                 >
                   <img src={send} alt="send" />
                 </button>
               </div>
+
+              {(teacherFile || chatStatus) && (
+                <div className="teacher-chat-status">
+                  {teacherFile && <span>Прикреплен файл: {teacherFile.name}</span>}
+                  {chatStatus && <span>{chatStatus}</span>}
+                </div>
+              )}
 
               <div className="status-dropdown">
                 <button
@@ -739,6 +881,7 @@ export default function NormWork() {
                   className={`teacher-submit-btn ${getStatusClass(
                     selectedStudent.normStatus
                   )}`}
+                  disabled={isMarkingChecked}
                   onClick={() => setStatusMenuOpen(!statusMenuOpen)}
                 >
                   Статус работы

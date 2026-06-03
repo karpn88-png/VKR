@@ -52,7 +52,7 @@ export default function VKRTopics() {
     subjectArea: "",
   });
 
-  const [topics, setTopics] = useState(initialTopics);
+  const [topics] = useState(initialTopics);
 
   const [profilePhoto] = useState(() => {
     return localStorage.getItem("ProfilePhoto") || avatar;
@@ -82,21 +82,6 @@ export default function VKRTopics() {
     setFilters(emptyFilters);
     setActiveFilters(emptyFilters);
     setSearchQuery("");
-  };
-
-  const takeTopic = (topicId) => {
-    setTopics((prevTopics) =>
-      prevTopics.map((topic) =>
-        topic.id === topicId
-          ? {
-              ...topic,
-              status: "Занята",
-            }
-          : topic
-      )
-    );
-
-    alert("Тема выбрана");
   };
 
   const filteredTopics = topics.filter((topic) => {

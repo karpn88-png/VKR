@@ -1,4 +1,4 @@
-    import { useEffect, useState } from "react";
+    import { useState } from "react";
 import "./GOST.css";
 
 import logo from "../../assets/logo.png";
@@ -11,30 +11,29 @@ import { Link } from "react-router-dom";
 
 const GOST_TEMPLATES_KEY = "gostTemplates";
 
+function getSavedTemplates() {
+  const savedTemplates = localStorage.getItem(GOST_TEMPLATES_KEY);
+
+  if (!savedTemplates) {
+    return [];
+  }
+
+  try {
+    return JSON.parse(savedTemplates);
+  } catch {
+    return [];
+  }
+}
+
 export default function GOST() {
   const [profileOpen, setProfileOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [supportOpen, setSupportOpen] = useState(false);
-  const [templates, setTemplates] = useState([]);
+  const [templates] = useState(getSavedTemplates);
 
   const [profilePhoto] = useState(() => {
     return localStorage.getItem("ProfilePhoto") || avatar;
   });
-
-  useEffect(() => {
-    const savedTemplates = localStorage.getItem(GOST_TEMPLATES_KEY);
-
-    if (!savedTemplates) {
-      setTemplates([]);
-      return;
-    }
-
-    try {
-      setTemplates(JSON.parse(savedTemplates));
-    } catch {
-      setTemplates([]);
-    }
-  }, []);
 
   const handleDownloadTemplate = (template) => {
     if (!template.fileData) {
