@@ -1,0 +1,1710 @@
+.cabinet-page {
+  margin-top: 10px;
+}
+
+a {
+  text-decoration: none;
+  color: inherit;
+}
+
+.nav-panel {
+  display: flex;
+  justify-content: space-between;
+  background: #f5f5f5;
+  padding: 14px 30px;
+  margin-bottom: 30px;
+  border-radius: 8px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+  margin-top: 50px;
+}
+
+.nav-link {
+  font-size: 16px;
+  color: #000000;
+  text-decoration: none;
+  font-weight: bold;
+}
+
+.nav-link:hover {
+  text-decoration: underline;
+}
+
+.cabinet-main {
+  min-height: 500px;
+  margin-top: 40px;
+}
+
+.work-panel {
+  min-height: 720px;
+  background: #f0eeee;
+  border-radius: 8px;
+  padding: 28px 34px;
+  box-sizing: border-box;
+}
+
+.work-top-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 760px;
+  gap: 28px;
+  align-items: start;
+}
+
+.work-title-block h1 {
+  margin: 0;
+  color: #00834f;
+  font-size: 32px;
+}
+
+.work-title-block p {
+  margin: 8px 0 0;
+  color: #777;
+  font-size: 16px;
+}
+
+.work-info {
+  position: absolute;
+  top: 24px;
+  right: 0;
+  width: 600px;
+  background: white;
+  border: 1px solid #d6d6d6;
+  border-radius: 10px;
+  padding: 10px 18px;
+  font-size: 14px;
+}
+
+.work-info div {
+  display: grid;
+  grid-template-columns: 210px 1fr;
+  gap: 14px;
+  margin-bottom: 8px;
+}
+
+.work-info div:last-child {
+  margin-bottom: 0;
+}
+
+.work-info b {
+  color: #000000;
+}
+
+.work-info span {
+  color: #9a9a9a;
+}
+
+.work-content-grid {
+  margin-top: 30px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 500px;
+  gap: 34px;
+  align-items: stretch;
+}
+
+/* Левая карточка с основными действиями */
+.work-actions-card {
+  min-height: 430px;
+  background: #ffffff;
+  border: 1px solid #cfcfcf;
+  border-radius: 18px;
+  padding: 54px 46px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 38px;
+}
+
+/* Поднимаем кнопки отправки работы выше */
+.work-actions-card {
+  justify-content: flex-start !important;
+  padding-top: 30px !important;
+}
+
+.work-actions-buttons {
+  margin-top: 0 !important;
+}
+
+.work-actions-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 245px;
+  gap: 50px;
+}
+
+
+.work-action-btn-norm {
+  width: 100% !important;
+  padding-left: 18px !important;
+  padding-right: 18px !important;
+}
+.work-action-btn {
+  min-height: 78px;
+  border: none;
+  border-radius: 10px;
+  background: #007a49;
+  color: #ffffff;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1.18;
+  text-align: center;
+  cursor: pointer;
+  transition: 0.2s ease;
+}
+
+.work-action-btn:hover {
+  background: #00663d;
+}
+
+.work-action-btn:active {
+  transform: translateY(1px);
+}
+
+.work-action-btn-wide {
+  width: 100%;
+}
+
+.work-action-btn-submit {
+  white-space: nowrap;
+}
+
+.work-actions-card button {
+  font-size: 14px !important;
+  font-weight: 400 !important;
+  line-height: 1 !important;
+}
+
+.work-actions-buttons {
+  width: 680px !important;
+  grid-template-columns: 1fr 220px !important;
+}
+
+.work-actions-card button {
+  min-height: 48px !important;
+  font-size: 16px !important;
+}
+
+.work-actions-buttons {
+  width: 680px !important;
+  grid-template-columns: 1fr 220px !important;
+}
+
+.work-actions-card button {
+  min-height: 48px !important;
+  font-size: 16px !important;
+}
+
+/* Карточка ИИ-проверки */
+.ai-check-card {
+  min-height: 430px;
+  background: #bfd8ce;
+  border: 1px solid #007a49;
+  border-radius: 20px;
+  padding: 30px 32px;
+  box-sizing: border-box;
+}
+
+.ai-check-card h2 {
+  margin: 0 0 12px;
+  color: #007a49;
+  font-size: 28px;
+}
+
+.ai-check-card p {
+  margin: 0 0 26px;
+  color: #555555;
+  font-size: 17px;
+  line-height: 1.3;
+}
+
+.ai-check-card h3 {
+  margin: 0 0 14px;
+  color: #333333;
+  font-size: 17px;
+}
+
+.ai-criteria-panel {
+  margin-bottom: 14px;
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.38);
+  border: 1px solid rgba(0, 122, 73, 0.35);
+  border-radius: 12px;
+}
+
+.ai-criteria-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  color: #222222;
+  font-size: 13px;
+}
+
+.ai-criteria-header span {
+  color: #007a49;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.ai-criteria-actions {
+  margin-top: 8px;
+  display: flex;
+  gap: 8px;
+}
+
+.ai-criteria-actions button {
+  height: 26px;
+  padding: 0 10px;
+  border: 1px solid #007a49;
+  border-radius: 7px;
+  background: #ffffff;
+  color: #007a49;
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.ai-criteria-actions button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.ai-criteria-list {
+  margin-top: 10px;
+  max-height: 116px;
+  overflow-y: auto;
+  padding-right: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.ai-criteria-item {
+  display: grid;
+  grid-template-columns: 16px 1fr;
+  gap: 8px;
+  align-items: start;
+  color: #222222;
+  font-size: 12px;
+  line-height: 1.25;
+  cursor: pointer;
+}
+
+.ai-criteria-item input {
+  width: 14px;
+  height: 14px;
+  margin: 1px 0 0;
+  accent-color: #007a49;
+}
+
+.ai-criteria-item:has(input:disabled) {
+  cursor: wait;
+  opacity: 0.65;
+}
+
+.ai-upload-box {
+  height: 150px;
+  background: #f2f8f5;
+  border: 1px dashed #777777;
+  border-radius: 18px;
+  padding: 22px 26px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.ai-upload-box.dragging {
+  border-color: #007a49;
+  background: #e6f4ee;
+}
+
+.ai-upload-box.disabled {
+  cursor: wait;
+  opacity: 0.72;
+}
+
+.ai-upload-box b {
+  color: #222222;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.ai-upload-box span {
+  margin-top: 12px;
+  color: #777777;
+  font-size: 12px;
+}
+
+.clip-icon {
+  width: 22px;
+  height: 22px;
+  object-fit: contain;
+}
+
+.ai-upload-box .clip-icon {
+  margin-top: 12px;
+}
+
+.ai-file-name {
+  margin-top: 12px;
+  color: #007a49;
+  font-size: 13px;
+  font-weight: 700;
+  word-break: break-word;
+}
+
+.ai-status {
+  margin-top: 8px;
+  min-height: 18px;
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.ai-status.muted {
+  color: #666666;
+}
+
+.ai-status.info {
+  color: #005d9a;
+}
+
+.ai-status.success {
+  color: #007a49;
+}
+
+.ai-status.error {
+  color: #b42323;
+}
+
+.ai-metrics {
+  margin-top: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  color: #333333;
+  font-size: 12px;
+}
+
+.ai-actions {
+  margin-top: 28px;
+  display: flex;
+  justify-content: space-between;
+  gap: 28px;
+}
+
+.download-checked-btn,
+.start-check-btn {
+  width: 190px;
+  min-height: 50px;
+  border-radius: 8px;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.15;
+  text-align: center;
+  cursor: pointer;
+  transition: 0.2s ease;
+}
+
+.download-checked-btn {
+  background: transparent;
+  color: #007a49;
+  border: 1px solid #007a49;
+}
+
+.start-check-btn {
+  background: #007a49;
+  color: #ffffff;
+  border: 1px solid #007a49;
+}
+
+.download-checked-btn:hover {
+  background: #e6f4ee;
+}
+
+.start-check-btn:hover {
+  background: #00663d;
+  border-color: #00663d;
+}
+
+.download-checked-btn:disabled,
+.start-check-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.download-checked-btn:disabled:hover {
+  background: transparent;
+}
+
+.start-check-btn:disabled:hover {
+  background: #007a49;
+  border-color: #007a49;
+}
+
+/* Статус работы */
+.work-status-box {
+  margin-top: 28px;
+  width: fit-content;
+  max-width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  background: #eeeeee;
+  border: 1px solid #b8b8b8;
+  border-radius: 14px;
+  flex-wrap: wrap;
+}
+
+.work-status-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: #5f6368;
+  white-space: nowrap;
+}
+
+.work-status-select {
+  min-width: 180px;
+  height: 32px;
+  padding: 0 34px 0 12px;
+  border: 1px solid #cfcfcf;
+  border-radius: 9px;
+  background: #f7f7f7;
+  color: #555555;
+  font-size: 13px;
+  font-family: inherit;
+  outline: none;
+  cursor: pointer;
+}
+
+.work-status-badge {
+  min-width: 96px;
+  height: 30px;
+  padding: 0 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.work-status-badge.waiting {
+  background: #eeeeee;
+  border: 1px solid #777777;
+  color: #666666;
+}
+
+.work-status-badge.not-checked {
+  background: #ffe1e1;
+  border: 1px solid #d64545;
+  color: #b42323;
+}
+
+.work-status-badge.in-progress {
+  background: #fff2b8;
+  border: 1px solid #d8a600;
+  color: #8a6500;
+}
+
+.work-status-badge.checked {
+  background: #dff5e9;
+  border: 1px solid #00864b;
+  color: #007a43;
+}
+
+.work-status-badge.revision {
+  background: #ffe5c7;
+  border: 1px solid #f08a24;
+  color: #c45f00;
+}
+
+/* Чат внутри модального окна */
+.chat-panel {
+  background: #ffffff;
+  border: 1px solid #cfcfcf;
+  border-radius: 18px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.chat-panel-modal {
+  width: 100%;
+  height: 100%;
+  flex: 1;
+  box-sizing: border-box;
+}
+
+.chat-recipient-chip {
+  width: fit-content;
+  margin-bottom: 12px;
+  padding: 8px 14px;
+  background: #dff1ea;
+  color: #007a49;
+  border-radius: 999px;
+  font-size: 13px;
+}
+
+.chat-empty {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  align-items: flex-end;
+  overflow-y: auto;
+  padding: 10px;
+  font-size: 22px;
+}
+
+.chat-empty-text {
+  width: 100%;
+  margin: auto;
+  text-align: center;
+  color: #777777;
+  font-size: 22px;
+}
+
+.message {
+  align-self: flex-end;
+  max-width: 70%;
+  background: #dff1ea;
+  border-radius: 14px;
+  padding: 10px 14px;
+  margin-bottom: 10px;
+}
+
+.message p {
+  margin: 0 0 6px;
+  color: #111111;
+  font-size: 15px;
+}
+
+.message-author {
+  margin-bottom: 6px;
+  color: #007a49;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.message span {
+  color: #777777;
+  font-size: 11px;
+}
+
+.message-file {
+  margin-top: 6px;
+  color: #007a49;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.message-info {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 6px;
+  color: #777777;
+  font-size: 11px;
+  line-height: 1.3;
+}
+
+.message-info span {
+  white-space: nowrap;
+}
+
+.chat-input-panel {
+  height: 52px;
+  border: 1px solid #cfcfcf;
+  border-radius: 10px;
+  display: grid;
+  grid-template-columns: 28px 1fr 42px;
+  align-items: center;
+  gap: 10px;
+  padding: 0 12px;
+}
+
+.chat-input-panel > input {
+  background-color: transparent !important;
+}
+
+.chat-input-panel input {
+  border: none;
+  outline: none;
+  font-family: inherit;
+  color: #222222 !important;
+  caret-color: #222222 !important;
+}
+
+.attach-btn {
+  cursor: pointer;
+  color: #777777;
+  display: flex;
+  align-items: center;
+}
+
+.send-btn {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.send-btn img {
+  width: 20px;
+  height: 20px;
+  object-fit: contain;
+}
+
+.send-btn:disabled {
+  cursor: wait;
+  opacity: 0.55;
+}
+
+.chat-status {
+  margin-top: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  color: #777777;
+  font-size: 12px;
+}
+
+/* Модальное окно чата */
+.chat-modal-overlay {
+  z-index: 1000;
+}
+
+.chat-modal-window {
+  width: 86vw;
+  max-width: 1240px;
+  height: 78vh;
+  background: #ffffff;
+  border-radius: 22px;
+  padding: 24px;
+  box-shadow: 0 12px 35px rgba(0, 0, 0, 0.28);
+  display: flex;
+  flex-direction: column;
+}
+
+.chat-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 18px;
+}
+
+.chat-modal-header h2 {
+  margin: 0;
+  color: #00834f;
+  font-size: 28px;
+}
+
+.chat-modal-header p {
+  margin: 6px 0 0;
+  color: #777777;
+  font-size: 15px;
+}
+
+.chat-modal-close {
+  width: 38px;
+  height: 38px;
+  border: none;
+  border-radius: 50%;
+  background: #eeeeee;
+  color: #333333;
+  font-size: 28px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.chat-modal-close:hover {
+  background: #dcdcdc;
+}
+
+/* Модалка сдачи работы */
+.submit-modal {
+  width: 420px;
+  background: white;
+  border-radius: 20px;
+  padding: 28px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+  position: relative;
+}
+
+.submit-modal h2 {
+  margin: 0 0 22px;
+  text-align: center;
+  font-size: 28px;
+  color: #222222;
+}
+
+.submit-upload-box {
+  min-height: 120px;
+  border: 1px dashed #9a9a9a;
+  border-radius: 18px;
+  padding: 22px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  cursor: pointer;
+  background: #f7faf8;
+}
+
+.submit-upload-box b {
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.submit-upload-box span {
+  margin-top: 8px;
+  color: #777777;
+  font-size: 11px;
+}
+
+.submit-upload-box .clip-icon {
+  margin-top: 12px;
+}
+
+.submit-warning {
+  margin-top: 20px;
+  text-align: center;
+  color: #666666;
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.submit-file-name {
+  margin: 12px 0 0;
+  color: #007a49;
+  font-size: 13px;
+  font-weight: 700;
+  word-break: break-word;
+}
+
+.submit-actions {
+  margin-top: 28px;
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.cancel-submit-btn,
+.confirm-submit-btn {
+  flex: 1;
+  height: 44px;
+  border-radius: 10px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.cancel-submit-btn {
+  background: white;
+  border: 1px solid #00834f;
+  color: #00834f;
+}
+
+.confirm-submit-btn {
+  background: #00834f;
+  border: none;
+  color: white;
+}
+
+.confirm-submit-btn:disabled {
+  cursor: wait;
+  opacity: 0.6;
+}
+
+/* Дополнительные модальные окна */
+.modal {
+  background: #ffffff;
+  border-radius: 18px;
+  padding: 24px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+}
+
+.close {
+  border: none;
+  background: transparent;
+  font-size: 26px;
+  cursor: pointer;
+}
+
+.support-modal {
+  width: 520px;
+}
+
+.support-modal textarea {
+  width: 100%;
+  min-height: 120px;
+  box-sizing: border-box;
+  resize: vertical;
+}
+
+.file-box {
+  margin-top: 8px;
+  border: 1px dashed #9a9a9a;
+  border-radius: 14px;
+  padding: 14px;
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  cursor: pointer;
+}
+
+.support-actions {
+  margin-top: 18px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+.outline-btn,
+.green-btn {
+  min-width: 120px;
+  height: 38px;
+  border-radius: 8px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.outline-btn {
+  background: white;
+  color: #00834f;
+  border: 1px solid #00834f;
+}
+
+.green-btn {
+  background: #00834f;
+  color: white;
+  border: none;
+}
+
+@media (max-width: 1250px) {
+  .work-top-row,
+  .work-content-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .work-actions-row {
+    grid-template-columns: 1fr;
+  }
+
+  .work-action-btn-submit {
+    white-space: normal;
+  }
+}
+
+/* Карточка этапов работы */
+.work-stages-card {
+  background: #ffffff;
+  border: 1px solid #cfcfcf;
+  border-radius: 18px;
+  padding: 26px 32px 30px;
+  box-sizing: border-box;
+}
+
+.work-stages-card h2 {
+  margin: 0 0 18px;
+  color: #007a49;
+  font-size: 26px;
+  font-weight: 700;
+}
+
+.work-stages-list {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.work-stage-row {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.work-stage-item {
+  max-width: 390px;
+  padding: 7px 14px;
+  border-radius: 999px;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.2;
+  text-align: left;
+  cursor: default;
+}
+
+.work-stage-item.done {
+  background: #dff1ea;
+  color: #007a49;
+  border: 1px solid #007a49;
+}
+
+.work-stage-item.current {
+  background: #fff2b8;
+  color: #8a6500;
+  border: 1px solid #d8a600;
+}
+
+.work-stage-item.locked {
+  background: #eeeeee;
+  color: #777777;
+  border: 1px solid #999999;
+}
+
+.work-stage-arrow {
+  margin-left: 14px;
+  height: 20px;
+  color: #555555;
+  font-size: 18px;
+  line-height: 20px;
+}
+
+/* Уменьшаем белый блок с кнопками отправки работы */
+.work-content-grid {
+  align-items: start !important;
+}
+
+.work-actions-card {
+  min-height: 260px !important;
+  height: auto !important;
+
+  padding: 38px 44px !important;
+
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+.work-actions-buttons {
+  margin: 0 auto !important;
+}
+
+/* Разделяем блок кнопок и этапы работы */
+.work-stages-card {
+  margin-top: 34px !important;
+}
+
+/* Правая колонка: ИИ-модуль + статус работы */
+.right-work-column {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+/* Статус под ИИ-модулем */
+.right-work-column .work-status-box {
+  width: 100%;
+  box-sizing: border-box;
+  margin-top: 0 !important;
+
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+
+  background: #eeeeee;
+  border: 1px solid #b8b8b8;
+  border-radius: 14px;
+  padding: 10px 12px;
+}
+
+/* Чтобы выпадающий список не ломал ширину */
+.right-work-column .work-status-select {
+  min-width: 170px;
+  max-width: 190px;
+}
+
+/* Чтобы статус красиво помещался */
+.right-work-column .work-status-badge {
+  min-width: 100px;
+}
+/* Делаем список типа проверки шире */
+.work-status-select {
+  min-width: 220px !important;
+  max-width: 220px !important;
+
+  font-size: 12px !important;
+}
+
+/* =========================================================
+   НОВАЯ СЕРЕДИНА: ЭТАПЫ ВКР СЛЕВА + ИИ-МОДУЛЬ СПРАВА
+   ========================================================= */
+.work-left-column {
+  min-width: 0;
+}
+
+.stage-timeline-card {
+  margin-top: 0 !important;
+  min-height: 430px;
+  background: #ffffff;
+  border: 1px solid #cfcfcf;
+  border-radius: 8px;
+  padding: 22px 28px 26px !important;
+  box-sizing: border-box;
+}
+
+.stage-timeline-card h2 {
+  margin: 0 0 18px;
+  color: #007a49;
+  font-size: 26px;
+  font-weight: 700;
+}
+
+.stage-timeline-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.stage-timeline-row {
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr);
+  gap: 12px;
+  align-items: stretch;
+}
+
+.stage-marker-column {
+  position: relative;
+  display: flex;
+  justify-content: center;
+}
+
+.stage-marker-column::after {
+  content: "";
+  position: absolute;
+  top: 30px;
+  bottom: -18px;
+  left: 50%;
+  width: 1px;
+  background: #9a9a9a;
+  transform: translateX(-50%);
+}
+
+.stage-timeline-row:last-child .stage-marker-column::after {
+  display: none;
+}
+
+.stage-marker {
+  position: relative;
+  z-index: 1;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 700;
+  box-sizing: border-box;
+}
+
+.stage-marker.done {
+  background: #007a49;
+  border: 1px solid #007a49;
+  color: #ffffff;
+}
+
+.stage-marker.current {
+  background: #ffffff;
+  border: 1px solid #9a9a9a;
+  color: transparent;
+}
+
+.stage-marker.locked {
+  background: #ffffff;
+  border: 1px solid #cfcfcf;
+  color: transparent;
+}
+
+.stage-content-card {
+  min-width: 0;
+  min-height: 54px;
+  border: 1px solid #9a9a9a;
+  border-radius: 4px;
+  padding: 10px 14px;
+  box-sizing: border-box;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 220px;
+  gap: 16px;
+  align-items: center;
+  background: #ffffff;
+}
+
+.stage-main-info {
+  min-width: 0;
+}
+
+.stage-title {
+  color: #222222;
+  font-size: 14px;
+  line-height: 1.25;
+}
+
+.stage-subtitle {
+  margin-top: 6px;
+  font-size: 12px;
+  line-height: 1.2;
+}
+
+.stage-subtitle.done {
+  color: #007a49;
+}
+
+.stage-subtitle.current {
+  color: #c47a00;
+}
+
+.stage-subtitle.locked {
+  color: #777777;
+}
+
+.stage-action-btn {
+  width: 100%;
+  height: 28px;
+  border: none;
+  border-radius: 4px;
+  background: #007a49;
+  color: #ffffff;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: 0.2s ease;
+}
+
+.stage-action-btn:hover {
+  background: #00663d;
+}
+
+.stage-info-box {
+  grid-column: 1 / -1;
+  width: 100%;
+  max-width: none;
+  margin-top: 8px;
+  min-height: 38px;
+  border: 1px solid #cfcfcf;
+  border-radius: 6px;
+  padding: 8px 12px;
+  box-sizing: border-box;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 28px;
+  gap: 10px;
+  align-items: center;
+  background: #ffffff;
+}
+
+.stage-info-box span {
+  min-width: 0;
+  width: 100%;
+  color: #111111;
+  text-align: center;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.25;
+  white-space: normal;
+  word-break: normal;
+  overflow-wrap: break-word;
+}
+
+.stage-info-close {
+  width: 24px;
+  height: 24px;
+  border: none;
+  background: transparent;
+  color: #111111;
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ИИ-модуль остается справа */
+.work-content-grid {
+  align-items: start !important;
+}
+
+.right-work-column {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+/* Адаптив для этапов */
+@media (max-width: 1250px) {
+  .stage-content-card {
+    grid-template-columns: 1fr;
+  }
+
+  .stage-action-btn {
+    max-width: 260px;
+  }
+}
+
+/* Новая форма сдачи работы в архив */
+.submit-archive-modal {
+  width: 610px;
+  max-height: 92vh;
+  overflow-y: auto;
+
+  padding: 22px 30px 24px;
+
+  border-radius: 20px;
+
+  position: relative;
+
+  background: #ffffff;
+
+  box-sizing: border-box;
+}
+
+.submit-archive-modal h2 {
+  margin: 0 0 14px;
+
+  text-align: center;
+
+  color: #111111;
+
+  font-size: 28px;
+  font-weight: 500;
+  line-height: 1.15;
+}
+
+.submit-modal-close {
+  position: absolute;
+
+  top: 12px;
+  right: 16px;
+
+  width: 28px;
+  height: 28px;
+
+  border: none;
+  background: transparent;
+
+  color: #000000;
+
+  font-size: 28px;
+  line-height: 1;
+
+  cursor: pointer;
+}
+
+.submit-form-top {
+  display: grid;
+  grid-template-columns: 70px minmax(0, 1fr) 70px;
+  gap: 14px;
+  align-items: end;
+}
+
+.submit-form-direction {
+  margin-top: 8px;
+
+  display: grid;
+  grid-template-columns: 165px minmax(0, 1fr);
+  gap: 14px;
+  align-items: end;
+}
+
+.submit-field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.submit-field span,
+.submit-section-label {
+  color: #222222;
+
+  font-size: 17px;
+  font-weight: 500;
+  line-height: 1.1;
+}
+
+.submit-field input,
+.keyword-input {
+  width: 100%;
+  height: 30px;
+
+  border: 1px solid #9a9a9a;
+  border-radius: 5px;
+
+  padding: 0 12px;
+
+  background: #ffffff;
+  color: #222222;
+
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 14px;
+
+  outline: none;
+
+  box-sizing: border-box;
+}
+
+.submit-field input[readonly] {
+  background: #f3f3f3;
+  color: #777777;
+}
+
+.full-submit-field {
+  margin-top: 8px;
+}
+
+.empty-label-field span {
+  visibility: hidden;
+}
+
+.submit-keywords-block {
+  margin-top: 8px;
+}
+
+.submit-keywords-row {
+  margin-top: 8px;
+
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.keyword-input {
+  width: 165px;
+}
+
+.add-keyword-btn {
+  width: 180px;
+  height: 32px;
+
+  border: 1px solid #9a9a9a;
+  border-radius: 6px;
+
+  background: #ffffff;
+  color: #777777;
+
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 14px;
+
+  cursor: pointer;
+}
+
+.add-keyword-btn:hover {
+  border-color: #007a49;
+  color: #007a49;
+}
+
+.add-keyword-btn span {
+  margin-left: 8px;
+  font-weight: 700;
+}
+
+.submit-keywords-list {
+  margin-top: 8px;
+
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.submit-keyword-chip {
+  min-height: 26px;
+
+  padding: 0 10px;
+
+  border: 1px solid #007a49;
+  border-radius: 999px;
+
+  background: #ffffff;
+  color: #007a49;
+
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 12px;
+
+  cursor: pointer;
+}
+
+.submit-file-block {
+  margin-top: 14px;
+}
+
+.large-submit-upload {
+  min-height: 78px;
+
+  margin-top: 8px;
+
+  border: 1px dashed #777777;
+  border-radius: 22px;
+
+  background: #ffffff;
+
+  padding: 14px 28px;
+
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 28px;
+
+  box-sizing: border-box;
+
+  cursor: pointer;
+}
+
+.large-submit-upload b {
+  display: block;
+
+  color: #222222;
+
+  font-size: 14px;
+  line-height: 1.3;
+}
+
+.large-submit-upload span {
+  display: block;
+
+  margin-top: 8px;
+
+  color: #777777;
+
+  font-size: 12px;
+}
+
+.submit-upload-icon {
+  width: 46px;
+  height: 46px;
+
+  flex-shrink: 0;
+
+  border-radius: 10px;
+
+  background: #e4f3ed;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.submit-upload-icon .clip-icon {
+  width: 24px;
+  height: 24px;
+  object-fit: contain;
+}
+
+.submit-file-name {
+  display: block;
+
+  margin-top: 7px;
+
+  color: #007a49;
+
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.submit-warning {
+  margin: 18px auto 0;
+
+  max-width: 470px;
+
+  text-align: center;
+
+  color: #888888;
+
+  font-size: 18px;
+  line-height: 1.25;
+}
+
+.submit-warning b {
+  font-weight: 700;
+}
+
+.submit-actions.new-submit-actions {
+  margin-top: 24px;
+
+  display: grid;
+  grid-template-columns: 1.1fr 0.9fr 0.9fr;
+  gap: 24px;
+}
+
+.cancel-submit-btn,
+.save-draft-btn,
+.confirm-submit-btn {
+  height: 52px;
+
+  border-radius: 8px;
+
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 16px;
+  font-weight: 700;
+
+  cursor: pointer;
+
+  transition: 0.2s ease;
+}
+
+.cancel-submit-btn {
+  background: #ffffff;
+  border: 2px solid #007a49;
+  color: #007a49;
+}
+
+.save-draft-btn {
+  background: #94cdb0;
+  border: 1px solid #007a49;
+  color: #007a49;
+}
+
+.confirm-submit-btn {
+  background: #007a49;
+  border: 1px solid #007a49;
+  color: #ffffff;
+}
+
+.cancel-submit-btn:hover {
+  background: #e6f4ee;
+}
+
+.save-draft-btn:hover {
+  background: #82c1a1;
+}
+
+.confirm-submit-btn:hover {
+  background: #00663d;
+}
+
+.confirm-submit-btn:disabled {
+  cursor: wait;
+  opacity: 0.6;
+}
+
+@media (max-width: 720px) {
+  .submit-archive-modal {
+    width: 100%;
+  }
+
+  .submit-form-top,
+  .submit-form-direction,
+  .submit-actions.new-submit-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .empty-label-field span {
+    display: none;
+  }
+}
+
+/* Поля ключевых слов в форме сдачи работы */
+.submit-keywords-row {
+  margin-top: 8px;
+
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.keyword-input {
+  width: 165px;
+  height: 30px;
+
+  border: 1px solid #9a9a9a;
+  border-radius: 5px;
+
+  padding: 0 12px;
+
+  background: #ffffff;
+  color: #222222;
+
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 14px;
+
+  outline: none;
+  box-sizing: border-box;
+}
+
+.add-keyword-btn {
+  width: 180px;
+  height: 32px;
+
+  border: 1px solid #9a9a9a;
+  border-radius: 6px;
+
+  background: #ffffff;
+  color: #777777;
+
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 14px;
+
+  cursor: pointer;
+}
+
+.add-keyword-btn:hover {
+  border-color: #007a49;
+  color: #007a49;
+}
+
+.add-keyword-btn span {
+  margin-left: 8px;
+  font-weight: 700;
+}
+
+/* Сдвигаем блок "Тема ВКР / Руководитель ВКР" вправо */
+.work-top-row {
+  grid-template-columns: minmax(0, 1fr) 760px !important;
+}
+
+.work-info {
+  justify-self: end !important;
+  transform: translateX(1px);
+}
+
+/* Левая колонка: этапы + статус сразу под ними */
+.work-left-column {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 14px !important;
+  align-self: start !important;
+}
+
+/* Убираем большой отступ у блока статуса */
+.work-status-under-stages {
+  margin-top: 0 !important;
+
+  width: 100% !important;
+  max-width: none !important;
+
+  display: flex !important;
+  align-items: center;
+  justify-content: space-between;
+
+  gap: 14px;
+
+  padding: 12px 16px;
+
+  background: #eeeeee;
+  border: 1px solid #b8b8b8;
+  border-radius: 14px;
+
+  box-sizing: border-box;
+}
+
+/* Чтобы сетка не растягивала левую часть вниз */
+.work-content-grid {
+  align-items: start !important;
+}
+
+/* Чтобы карточка этапов не оставляла лишнюю высоту снизу */
+.stage-timeline-card {
+  min-height: auto !important;
+  margin-bottom: 0 !important;
+}

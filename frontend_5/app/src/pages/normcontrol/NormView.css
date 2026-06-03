@@ -1,0 +1,413 @@
+/* СТРАНИЦА ПРЕПОДАВАТЕЛЕЙ */
+
+.teacher-view-panel {
+  width: 100%;
+}
+
+.teacher-view-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 20px;
+}
+
+.teacher-title-block h1 {
+  margin: 0;
+
+  color: #00834f;
+
+  font-family: Arial, sans-serif;
+  font-size: 32px;
+  font-weight: 500;
+  line-height: 1.1;
+}
+
+.teacher-title-block p {
+  margin: 8px 0 0;
+
+  color: #777;
+
+  font-size: 16px;
+  line-height: 1.2;
+}
+
+.teacher-search {
+  width: 260px;
+  height: 38px;
+
+  background: white;
+
+  border: 1px solid #d0d0d0;
+  border-radius: 4px;
+
+  display: flex;
+  align-items: center;
+  gap: 8px;
+
+  padding: 0 10px;
+}
+
+.teacher-search input {
+  width: 100%;
+
+  border: none;
+  outline: none;
+
+  background: transparent;
+  color: #333;
+
+  font-size: 14px;
+  font-family: inherit;
+}
+
+.teacher-search input::placeholder {
+  color: #9aa0ad;
+}
+
+.teacher-search span {
+  color: #111;
+  font-size: 24px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.teacher-table-wrapper {
+  width: 100%;
+  height: 520px;
+
+  margin-top: 24px;
+
+  background: white;
+
+  border: 1px solid #d7d7d7;
+
+  overflow-y: auto;
+}
+
+.teacher-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: white;
+  font-size: 15px;
+}
+
+.teacher-table th,
+.teacher-table td {
+  padding: 10px 14px;
+  border-bottom: 1px solid #e5e5e5;
+  text-align: left;
+  vertical-align: middle;
+}
+
+.teacher-table th {
+  color: #111;
+  font-weight: 500;
+}
+
+.teacher-table td {
+  color: #555;
+}
+
+.teacher-table th:first-child,
+.teacher-table td:first-child {
+  width: 50px;
+  text-align: center;
+}
+
+.students-count-btn {
+  min-width: 34px;
+  height: 22px;
+
+  padding: 0 10px;
+
+  border: 1px solid #31a56e;
+  border-radius: 10px;
+
+  background: #dff6e8;
+  color: #00834f;
+
+  font-size: 12px;
+  font-family: inherit;
+
+  cursor: pointer;
+}
+
+.students-count-btn:hover {
+  opacity: 0.85;
+}
+
+.empty-table-text {
+  text-align: center !important;
+  color: #888 !important;
+  height: 80px;
+}
+
+/* МОДАЛКА СО СПИСКОМ СТУДЕНТОВ */
+
+.teacher-students-modal {
+  width: 840px;
+  max-width: 92vw;
+
+  background: white;
+
+  border: none;
+  border-radius: 14px;
+
+  padding: 22px 22px 20px;
+
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+}
+
+.teacher-students-modal {
+  position: relative;
+
+  width: 1050px;
+  max-width: 94vw;
+
+  background: white;
+
+  border: none;
+  border-radius: 14px;
+
+  padding: 26px 28px 28px;
+
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+}
+
+.teacher-students-modal h3 {
+  margin: 0;
+
+  color: #00834f;
+
+  font-size: 26px;
+  font-weight: 700;
+}
+
+.teacher-students-modal h4 {
+  margin: 10px 0 18px;
+
+  color: #111;
+
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.teacher-students-count {
+  margin: 0 0 18px;
+
+  color: #333;
+  font-size: 16px;
+}
+
+.teacher-students-count span {
+  color: #00834f;
+  font-weight: 700;
+}
+
+.teacher-students-table-wrapper {
+  width: 100%;
+
+  border: 1px solid #ececec;
+  border-radius: 8px;
+
+  overflow: hidden;
+}
+
+.teacher-students-table {
+  width: 100%;
+
+  border-collapse: collapse;
+
+  background: white;
+
+  font-size: 14px;
+}
+
+.teacher-students-table th,
+.teacher-students-table td {
+  padding: 12px 10px;
+
+  border-bottom: 1px solid #ececec;
+
+  text-align: left;
+  vertical-align: middle;
+}
+
+.teacher-students-table th {
+  color: #000000;
+
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.teacher-students-table th:first-child,
+.teacher-students-table td:first-child {
+  width: 46px;
+
+  text-align: center;
+}
+
+.teacher-students-table th:nth-child(2),
+.teacher-students-table td:nth-child(2) {
+  width: 220px;
+}
+
+.teacher-students-table td {
+  color: #111 !important;
+}
+
+.teacher-students-table th {
+  color: #111 !important;
+}
+
+.teacher-students-table th:nth-child(3),
+.teacher-students-table td:nth-child(3) {
+  width: 80px;
+}
+
+.teacher-students-table th:nth-child(4),
+.teacher-students-table td:nth-child(4) {
+  width: 280px;
+}
+
+.teacher-students-table th:nth-child(5),
+.teacher-students-table td:nth-child(5),
+.teacher-students-table th:nth-child(6),
+.teacher-students-table td:nth-child(6) {
+  width: 170px;
+}
+
+.student-status-badge {
+  display: inline-block;
+
+  padding: 6px 10px;
+
+  border-radius: 8px;
+
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.status-checked {
+  background: #dff4e5;
+  color: #2f9c5a;
+}
+
+.status-progress {
+  background: #fff1d6;
+  color: #d59a20;
+}
+
+.status-notchecked {
+  background: #ffe3e3;
+  color: #e05a5a;
+}
+
+.teacher-students-modal {
+  position: relative;
+
+  width: 840px;
+  max-width: 92vw;
+
+  background: white;
+
+  border: none;
+  border-radius: 14px;
+
+  padding: 26px 28px 28px;
+
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+}
+
+.teacher-modal-close {
+  position: absolute;
+
+  top: 16px;
+  right: 18px;
+
+  width: 32px;
+  height: 32px;
+
+  border: 1px solid #aaa;
+  border-radius: 50%;
+
+  background: white;
+  color: #777;
+
+  font-size: 28px;
+  line-height: 26px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  cursor: pointer;
+}
+
+.teacher-modal-close:hover {
+  color: #111;
+  border-color: #777;
+}
+
+.notifications-popover {
+  position: absolute;
+
+  top: 82px;
+  right: 180px;
+
+  width: 380px;
+  height: 220px;
+
+  background: #f7f7f7;
+
+  border: 1px solid #333;
+  border-radius: 20px;
+
+  padding: 26px;
+
+  z-index: 2000;
+
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.25);
+}
+
+.notifications-popover h3 {
+  margin: 0 0 44px;
+
+  color: #00834f;
+
+  text-align: center;
+
+  font-size: 28px;
+}
+
+.notifications-popover p {
+  margin: 0;
+
+  color: #b5b5b5;
+
+  text-align: center;
+
+  font-size: 18px;
+}
+
+.notifications-close {
+  position: absolute;
+
+  top: 12px;
+  right: 12px;
+
+  width: 30px;
+  height: 30px;
+
+  border: 1px solid #aaa;
+  border-radius: 50%;
+
+  background: white;
+  color: #333;
+
+  font-size: 22px;
+  line-height: 26px;
+
+  cursor: pointer;
+}
