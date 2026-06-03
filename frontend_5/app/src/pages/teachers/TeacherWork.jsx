@@ -55,38 +55,7 @@ export default function TeacherWork() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [searchValue, setSearchValue] = useState("");
 
-  const [students, setStudents] = useState([
-    {
-      id: 1,
-      fio: "Иванов Иван Иванович",
-      group: "АТ-23",
-      topic: "Разработка информационной системы",
-      status: "Не проверено",
-      preliminaryGrade: "",
-      predefenseGrade: "",
-      finalGrade: "",
-    },
-    {
-      id: 2,
-      fio: "Сидорова Анна Петровна",
-      group: "АТ-24",
-      topic: "Разработка мобильного приложения",
-      status: "На проверке",
-      preliminaryGrade: "",
-      predefenseGrade: "",
-      finalGrade: "",
-    },
-    {
-      id: 3,
-      fio: "Петров Алексей Дмитриевич",
-      group: "АО-22",
-      topic: "Разработка базы данных",
-      status: "Требуется доработка",
-      preliminaryGrade: "",
-      predefenseGrade: "",
-      finalGrade: "",
-    },
-  ]);
+  const [students, setStudents] = useState([]);
 
   const filteredStudents = students.filter((student) => {
     const groupMatch = groupFilter === "all" || student.group === groupFilter;
@@ -578,7 +547,9 @@ export default function TeacherWork() {
                   >
                     <div className="teacher-message-header">
                       <span className="teacher-message-author">
-                        {msg.sender_name}
+                        {msg.sender_role === TEACHER_ROLE
+                          ? TEACHER_NAME
+                          : msg.sender_name}
                       </span>
 
                       <span className="teacher-message-date">

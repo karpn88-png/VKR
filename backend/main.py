@@ -182,6 +182,7 @@ STUDENT_PROFILE = {
     "group": "АТ-23",
     "topic": "Разработка информационной системы",
     "teacher": "Бакаев Максим Александрович",
+    "teacher_short": "Бакаев М. А.",
     "default_status": "Не проверено",
     "grade": "",
     "teacherGrade": "",
@@ -196,6 +197,7 @@ STUDENT_PROFILES = [
         "group": "АТ-24",
         "topic": "Разработка мобильного приложения",
         "teacher": "Бакаев Максим Александрович",
+        "teacher_short": "Бакаев М. А.",
         "default_status": "На проверке",
         "grade": "",
         "teacherGrade": "",
@@ -208,6 +210,7 @@ STUDENT_PROFILES = [
         "group": "АО-22",
         "topic": "Разработка базы данных",
         "teacher": "Бакаев Максим Александрович",
+        "teacher_short": "Бакаев М. А.",
         "default_status": "Требуется доработка",
         "grade": "",
         "teacherGrade": "",
@@ -246,8 +249,8 @@ STUDENT_PROFILES = [
 ]
 
 TEACHER_PROFILE = {
-    "short_name": "Бакаев М. А.",
-    "full_name": "Бакаев Максим Александрович",
+    "short_name": "Тетерин М. М.",
+    "full_name": "Тетерин Максим Михайлович",
 }
 
 NORMCONTROL_PROFILE = {
@@ -281,6 +284,17 @@ def status_actor_name(role: str | None) -> str:
     if normalized == "teacher":
         return TEACHER_PROFILE["short_name"]
     return STUDENT_PROFILE["short_name"]
+
+
+def profile_teacher_short(profile: dict) -> str:
+    return profile.get("teacher_short") or TEACHER_PROFILE["short_name"]
+
+
+def profile_belongs_to_current_teacher(profile: dict) -> bool:
+    return (
+        profile_teacher_short(profile) == TEACHER_PROFILE["short_name"]
+        or profile.get("teacher") == TEACHER_PROFILE["full_name"]
+    )
 
 
 def message_belongs_to_role(message: WorkMessage, role: str | None) -> bool:
@@ -557,7 +571,15 @@ def list_teacher_students(recipient_role: str = "teacher"):
     db = SessionLocal()
     try:
         students = []
-        for profile in STUDENT_PROFILES:
+        profiles = STUDENT_PROFILES
+        if recipient_role == "teacher":
+            profiles = [
+                profile
+                for profile in STUDENT_PROFILES
+                if profile_belongs_to_current_teacher(profile)
+            ]
+
+        for profile in profiles:
             state = get_or_create_work_state(
                 db,
                 profile["id"],
@@ -570,7 +592,7 @@ def list_teacher_students(recipient_role: str = "teacher"):
                 "fio": profile["fio"],
                 "group": profile["group"],
                 "topic": profile["topic"],
-                "teacher": profile.get("teacher_short") or TEACHER_PROFILE["short_name"],
+                "teacher": profile_teacher_short(profile),
                 "status": status_for_role(state, recipient_role),
                 "teacherStatus": state.teacher_status,
                 "normStatus": state.norm_status,
