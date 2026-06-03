@@ -213,6 +213,36 @@ STUDENT_PROFILES = [
         "teacherGrade": "",
         "demo": True,
     },
+    {
+        "id": 4,
+        "fio": "Карпенко Никита Денисович",
+        "short_name": "Карпенко Н. Д.",
+        "group": "АТ-23",
+        "topic": "Разработка информационной системы на основе нейросетевой модели для подготовки ВКР",
+        "teacher": "Тетерин Максим Михайлович",
+        "teacher_short": "Тетерин М. М.",
+        "default_status": "Проверено",
+        "default_teacher_status": "Проверено",
+        "default_norm_status": "Требуется доработка",
+        "grade": "",
+        "teacherGrade": "",
+        "demo": True,
+    },
+    {
+        "id": 5,
+        "fio": "Филатова Виктория Сергеевна",
+        "short_name": "Филатова В. С.",
+        "group": "АТ-23",
+        "topic": "Разработка информационной системы для взаимодействия студентов и преподавателей при работе с ВКР",
+        "teacher": "Тетерин Максим Михайлович",
+        "teacher_short": "Тетерин М. М.",
+        "default_status": "Проверено",
+        "default_teacher_status": "Проверено",
+        "default_norm_status": "Требуется доработка",
+        "grade": "",
+        "teacherGrade": "",
+        "demo": True,
+    },
 ]
 
 TEACHER_PROFILE = {
@@ -429,16 +459,20 @@ def get_or_create_work_state(
     db,
     student_id: int,
     default_status: str = "Не проверено",
+    default_teacher_status: str | None = None,
+    default_norm_status: str | None = None,
 ) -> WorkThreadState:
     state = db.query(WorkThreadState).filter(WorkThreadState.student_id == student_id).first()
     if state:
         return state
 
+    teacher_status = default_teacher_status or default_status
+    norm_status = default_norm_status or default_status
     state = WorkThreadState(
         student_id=student_id,
-        status=default_status,
-        teacher_status=default_status,
-        norm_status=default_status,
+        status=teacher_status,
+        teacher_status=teacher_status,
+        norm_status=norm_status,
     )
     db.add(state)
     db.commit()
@@ -469,6 +503,8 @@ def serialize_work_thread(db, student_id: int, recipient_role: str | None = None
         db,
         student_id,
         student_profile.get("default_status", "Не проверено"),
+        student_profile.get("default_teacher_status"),
+        student_profile.get("default_norm_status"),
     )
     all_messages = (
         db.query(WorkMessage)
@@ -526,13 +562,15 @@ def list_teacher_students(recipient_role: str = "teacher"):
                 db,
                 profile["id"],
                 profile.get("default_status", "Не проверено"),
+                profile.get("default_teacher_status"),
+                profile.get("default_norm_status"),
             )
             students.append({
                 "id": profile["id"],
                 "fio": profile["fio"],
                 "group": profile["group"],
                 "topic": profile["topic"],
-                "teacher": TEACHER_PROFILE["short_name"],
+                "teacher": profile.get("teacher_short") or TEACHER_PROFILE["short_name"],
                 "status": status_for_role(state, recipient_role),
                 "teacherStatus": state.teacher_status,
                 "normStatus": state.norm_status,
@@ -586,7 +624,14 @@ async def create_work_message(
 
     db = SessionLocal()
     try:
-        state = get_or_create_work_state(db, student_id)
+        student_profile = get_student_profile(student_id)
+        state = get_or_create_work_state(
+            db,
+            student_id,
+            student_profile.get("default_status", "Не проверено"),
+            student_profile.get("default_teacher_status"),
+            student_profile.get("default_norm_status"),
+        )
         if sender_role == "student" and file_content and recipient_role in {"teacher", "normcontrol"}:
             set_status_for_role(state, recipient_role, "На проверке")
             state.submitted_at = datetime.datetime.utcnow()
@@ -645,7 +690,14 @@ async def submit_work(
 
     db = SessionLocal()
     try:
-        state = get_or_create_work_state(db, student_id)
+        student_profile = get_student_profile(student_id)
+        state = get_or_create_work_state(
+            db,
+            student_id,
+            student_profile.get("default_status", "Не проверено"),
+            student_profile.get("default_teacher_status"),
+            student_profile.get("default_norm_status"),
+        )
         set_status_for_role(state, recipient_role, "На проверке")
         state.submitted_at = datetime.datetime.utcnow()
         state.checked_at = None
@@ -684,7 +736,13 @@ def mark_work_checked(student_id: int, checker_role: str = Form(default="teacher
 
     db = SessionLocal()
     try:
-        state = get_or_create_work_state(db, student_id)
+        state = get_or_create_work_state(
+            db,
+            student_id,
+            student_profile.get("default_status", "Не проверено"),
+            student_profile.get("default_teacher_status"),
+            student_profile.get("default_norm_status"),
+        )
         set_status_for_role(state, checker_role, "Проверено")
         state.checked_at = datetime.datetime.utcnow()
 
@@ -724,6 +782,8 @@ def update_work_status(
             db,
             student_id,
             student_profile.get("default_status", "Не проверено"),
+            student_profile.get("default_teacher_status"),
+            student_profile.get("default_norm_status"),
         )
         set_status_for_role(state, actor_role, status)
         state.updated_at = datetime.datetime.utcnow()
@@ -780,6 +840,8 @@ def update_work_grades(
             db,
             student_id,
             student_profile.get("default_status", "Не проверено"),
+            student_profile.get("default_teacher_status"),
+            student_profile.get("default_norm_status"),
         )
         apply_grades_for_role(state, target_role, grades)
         state.updated_at = datetime.datetime.utcnow()
