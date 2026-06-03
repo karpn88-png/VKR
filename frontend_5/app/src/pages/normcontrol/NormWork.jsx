@@ -15,11 +15,13 @@ import {
   getTeacherStudents,
   getWorkThread,
   sendWorkMessage,
+  updateStudentWorkGrades,
   updateStudentWorkStatus,
 } from "../../api/workThread";
 
 const NORMCONTROL_ROLE = "normcontrol";
 const NORMCONTROL_NAME = "Герасимов А. К.";
+const TEACHER_ROLE = "teacher";
 
 const emptyGrades = {
   preliminary: "",
@@ -29,7 +31,7 @@ const emptyGrades = {
 
 const normalizeNormStudent = (student) => ({
   ...student,
-  teacherStatus: student.teacherStatus ?? "Проверено",
+  teacherStatus: student.teacherStatus ?? "Не проверено",
   teacherGrades: student.teacherGrades ?? { ...emptyGrades },
   normStatus: student.normStatus ?? student.status ?? "Не проверено",
   normGrades: student.normGrades ?? {
@@ -52,6 +54,7 @@ export default function NormWork() {
   const [chatStatus, setChatStatus] = useState("");
   const [isSendingMessage, setIsSendingMessage] = useState(false);
   const [isMarkingChecked, setIsMarkingChecked] = useState(false);
+  const [isSavingGrade, setIsSavingGrade] = useState(false);
 
   const [successMessage, setSuccessMessage] = useState(false);
   const [gradeMessage, setGradeMessage] = useState(false);
@@ -226,16 +229,18 @@ export default function NormWork() {
   );
   const selectedStudentId = selectedStudent?.id;
 
-  const applyStudentStatus = useCallback((studentId, status) => {
+  const applyStudentStatus = useCallback((studentId, status, patch = {}) => {
     setStudents((prevStudents) =>
       prevStudents.map((student) =>
-        student.id === studentId ? { ...student, normStatus: status } : student
+        student.id === studentId
+          ? { ...student, normStatus: status, ...patch }
+          : student
       )
     );
 
     setSelectedStudent((prevStudent) =>
       prevStudent && prevStudent.id === studentId
-        ? { ...prevStudent, normStatus: status }
+        ? { ...prevStudent, normStatus: status, ...patch }
         : prevStudent
     );
   }, []);
@@ -256,7 +261,12 @@ export default function NormWork() {
         ...prev,
         [studentId]: thread.messages ?? [],
       }));
-      applyStudentStatus(studentId, thread.status ?? "Не проверено");
+      applyStudentStatus(studentId, thread.status ?? "Не проверено", {
+        teacherStatus: thread.teacherStatus ?? "Не проверено",
+        normStatus: thread.normStatus ?? thread.status ?? "Не проверено",
+        teacherGrades: thread.teacherGrades ?? { ...emptyGrades },
+        normGrades: thread.normGrades ?? { ...emptyGrades },
+      });
       setChatStatus("");
     } catch (error) {
       setChatStatus(`Не удалось загрузить переписку: ${error.message}`);
@@ -425,16 +435,17 @@ export default function NormWork() {
     }));
   };
 
-  const saveStudentGrades = () => {
-    if (!selectedStudent) return;
+  const applyGradePatch = (studentId, targetRole, grades) => {
+    const fieldName = targetRole === "teacher" ? "teacherGrades" : "normGrades";
 
     setStudents((prevStudents) =>
       prevStudents.map((student) =>
-        student.id === selectedStudent.id
+        student.id === studentId
           ? {
               ...student,
-              normGrades: {
-                ...gradeDraft,
+              [fieldName]: {
+                ...student[fieldName],
+                ...grades,
               },
             }
           : student
@@ -442,47 +453,71 @@ export default function NormWork() {
     );
 
     setSelectedStudent((prevStudent) =>
-      prevStudent
+      prevStudent && prevStudent.id === studentId
         ? {
             ...prevStudent,
-            normGrades: {
-              ...gradeDraft,
+            [fieldName]: {
+              ...prevStudent[fieldName],
+              ...grades,
             },
           }
         : prevStudent
     );
-
-    setGradeMessage(true);
-
-    setTimeout(() => {
-      setGradeMessage(false);
-    }, 3000);
   };
 
-  const changeStudentGradeFromTable = (studentId, field, value) => {
-    setStudents((prevStudents) =>
-      prevStudents.map((student) =>
-        student.id === studentId
-          ? {
-              ...student,
-              normGrades: {
-                ...student.normGrades,
-                [field]: value,
-              },
-            }
-          : student
-      )
-    );
+  const saveGrades = async (student, targetRole, grades) => {
+    if (!student || isSavingGrade) return;
 
-    if (selectedStudent?.id === studentId) {
-      setSelectedStudent((prevStudent) => ({
-        ...prevStudent,
+    setIsSavingGrade(true);
+    setChatStatus("Сохраняем оценку...");
+
+    try {
+      const thread = await updateStudentWorkGrades(student.id, {
+        actorRole: NORMCONTROL_ROLE,
+        targetRole,
+        grades,
+      });
+      applyStudentStatus(student.id, thread.status ?? student.normStatus, {
+        teacherStatus: thread.teacherStatus ?? student.teacherStatus,
+        normStatus: thread.normStatus ?? student.normStatus,
+        teacherGrades: thread.teacherGrades ?? student.teacherGrades,
+        normGrades: thread.normGrades ?? student.normGrades,
+      });
+      setChatStatus("Оценка сохранена.");
+      setGradeMessage(true);
+
+      setTimeout(() => {
+        setGradeMessage(false);
+      }, 3000);
+    } catch (error) {
+      setChatStatus(`Не удалось сохранить оценку: ${error.message}`);
+    } finally {
+      setIsSavingGrade(false);
+    }
+  };
+
+  const saveStudentGrades = () => {
+    if (!selectedStudent) return;
+
+    applyGradePatch(selectedStudent.id, "normcontrol", gradeDraft);
+
+    void saveGrades(
+      {
+        ...selectedStudent,
         normGrades: {
-          ...prevStudent.normGrades,
-          [field]: value,
+          ...selectedStudent.normGrades,
+          ...gradeDraft,
         },
-      }));
+      },
+      NORMCONTROL_ROLE,
+      gradeDraft
+    );
+  };
 
+  const changeStudentGradeFromTable = (studentId, targetRole, field, value) => {
+    applyGradePatch(studentId, targetRole, { [field]: value });
+
+    if (targetRole === "normcontrol" && selectedStudent?.id === studentId) {
       setGradeDraft((prevDraft) => ({
         ...prevDraft,
         [field]: value,
@@ -490,7 +525,7 @@ export default function NormWork() {
     }
   };
 
-  const renderGradesCell = (grades, studentForEdit = null) => {
+  const renderGradesCell = (grades, studentForEdit = null, targetRole = NORMCONTROL_ROLE) => {
     return (
       <div className="grade-cell-list">
         {gradeRows.map((row) => (
@@ -506,10 +541,33 @@ export default function NormWork() {
                 onChange={(e) =>
                   changeStudentGradeFromTable(
                     studentForEdit.id,
+                    targetRole,
                     row.key,
                     e.target.value
                   )
                 }
+                onBlur={(e) =>
+                  saveGrades(
+                    {
+                      ...studentForEdit,
+                      [`${targetRole === "teacher" ? "teacher" : "norm"}Grades`]: {
+                        ...grades,
+                        [row.key]: e.target.value,
+                      },
+                    },
+                    targetRole,
+                    {
+                      ...grades,
+                      [row.key]: e.target.value,
+                    }
+                  )
+                }
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    e.currentTarget.blur();
+                  }
+                }}
               />
             ) : (
               <span className="grade-value-text">
@@ -684,9 +742,13 @@ export default function NormWork() {
 
       <td>{student.teacher}</td>
 
-      <td className="empty-status-cell">-</td>
+      <td>
+        <span className={`status-btn status-readonly ${getStatusClass(student.teacherStatus)}`}>
+          {student.teacherStatus}
+        </span>
+      </td>
 
-      <td>{renderGradesCell(student.teacherGrades)}</td>
+      <td>{renderGradesCell(student.teacherGrades, student, TEACHER_ROLE)}</td>
 
       <td>
         <button
@@ -699,7 +761,7 @@ export default function NormWork() {
         </button>
       </td>
 
-      <td>{renderGradesCell(student.normGrades, student)}</td>
+      <td>{renderGradesCell(student.normGrades, student, NORMCONTROL_ROLE)}</td>
 
       <td>
         <button
@@ -756,7 +818,12 @@ export default function NormWork() {
                 </p>
               ) : (
                 currentMessages.map((msg) => (
-                  <div className="teacher-message" key={msg.id}>
+                  <div
+                    className={`teacher-message ${
+                      msg.sender_role === NORMCONTROL_ROLE ? "own" : "other"
+                    }`}
+                    key={msg.id}
+                  >
                     <div className="teacher-message-header">
                       <span className="teacher-message-author">
                         {msg.sender_name}
@@ -821,6 +888,7 @@ export default function NormWork() {
                       <button
                         type="button"
                         className="final-grade-save"
+                        disabled={isSavingGrade}
                         onClick={saveStudentGrades}
                       >
                         ✓

@@ -128,6 +128,25 @@ export async function updateStudentWorkStatus(
   );
 }
 
+export async function updateStudentWorkGrades(
+  studentId,
+  { actorRole = "teacher", targetRole = actorRole, grades },
+) {
+  return readApiResponse(
+    await fetch(`${API_BASE}/work_thread/${studentId}/grades`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        actor_role: actorRole,
+        target_role: targetRole,
+        grades,
+      }),
+    }),
+  );
+}
+
 export function getAttachmentUrl(downloadUrl) {
   return downloadUrl ? `${API_BASE}${downloadUrl}` : null;
 }

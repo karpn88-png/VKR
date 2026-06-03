@@ -15,7 +15,7 @@ from fastapi.responses import StreamingResponse
 
 from docx import Document as DocxDocument
 
-from sqlalchemy import create_engine, Column, Integer, String, LargeBinary, DateTime, ForeignKey, Text
+from sqlalchemy import create_engine, Column, Integer, String, LargeBinary, DateTime, ForeignKey, Text, text as sql_text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import sessionmaker, declarative_base
 
@@ -121,6 +121,14 @@ class WorkThreadState(Base):
 
     student_id = Column(Integer, primary_key=True, index=True)
     status = Column(String, default="Не проверено", nullable=False)
+    teacher_status = Column(String, default="Не проверено", nullable=False)
+    norm_status = Column(String, default="Не проверено", nullable=False)
+    teacher_preliminary_grade = Column(String, default="", nullable=False)
+    teacher_predefense_grade = Column(String, default="", nullable=False)
+    teacher_final_grade = Column(String, default="", nullable=False)
+    norm_preliminary_grade = Column(String, default="", nullable=False)
+    norm_predefense_grade = Column(String, default="", nullable=False)
+    norm_final_grade = Column(String, default="", nullable=False)
     submitted_at = Column(DateTime, nullable=True)
     checked_at = Column(DateTime, nullable=True)
     updated_at = Column(DateTime, default=datetime.datetime.utcnow, onupdate=datetime.datetime.utcnow)
@@ -143,6 +151,29 @@ class WorkMessage(Base):
 
 
 Base.metadata.create_all(bind=engine)
+
+
+def ensure_work_thread_state_columns() -> None:
+    """Add review columns for deployments created before separated statuses."""
+    statements = [
+        "ALTER TABLE work_thread_state ADD COLUMN IF NOT EXISTS teacher_status VARCHAR NOT NULL DEFAULT 'Не проверено'",
+        "ALTER TABLE work_thread_state ADD COLUMN IF NOT EXISTS norm_status VARCHAR NOT NULL DEFAULT 'Не проверено'",
+        "ALTER TABLE work_thread_state ADD COLUMN IF NOT EXISTS teacher_preliminary_grade VARCHAR NOT NULL DEFAULT ''",
+        "ALTER TABLE work_thread_state ADD COLUMN IF NOT EXISTS teacher_predefense_grade VARCHAR NOT NULL DEFAULT ''",
+        "ALTER TABLE work_thread_state ADD COLUMN IF NOT EXISTS teacher_final_grade VARCHAR NOT NULL DEFAULT ''",
+        "ALTER TABLE work_thread_state ADD COLUMN IF NOT EXISTS norm_preliminary_grade VARCHAR NOT NULL DEFAULT ''",
+        "ALTER TABLE work_thread_state ADD COLUMN IF NOT EXISTS norm_predefense_grade VARCHAR NOT NULL DEFAULT ''",
+        "ALTER TABLE work_thread_state ADD COLUMN IF NOT EXISTS norm_final_grade VARCHAR NOT NULL DEFAULT ''",
+        "UPDATE work_thread_state SET teacher_status = status WHERE teacher_status = 'Не проверено' AND status <> 'Не проверено'",
+        "UPDATE work_thread_state SET norm_status = status WHERE norm_status = 'Не проверено' AND status <> 'Не проверено'",
+    ]
+
+    with engine.begin() as connection:
+        for statement in statements:
+            connection.execute(sql_text(statement))
+
+
+ensure_work_thread_state_columns()
 
 STUDENT_PROFILE = {
     "id": 1,
@@ -257,6 +288,80 @@ WORK_STATUSES = {
     "Проверено",
 }
 
+GRADE_KEY_ALIASES = {
+    "preliminary": "preliminary",
+    "preliminaryGrade": "preliminary",
+    "predefense": "predefense",
+    "predefenseGrade": "predefense",
+    "defense": "predefense",
+    "final": "final",
+    "finalGrade": "final",
+}
+
+GRADE_COLUMNS = {
+    "teacher": {
+        "preliminary": "teacher_preliminary_grade",
+        "predefense": "teacher_predefense_grade",
+        "final": "teacher_final_grade",
+    },
+    "normcontrol": {
+        "preliminary": "norm_preliminary_grade",
+        "predefense": "norm_predefense_grade",
+        "final": "norm_final_grade",
+    },
+}
+
+
+def status_for_role(state: WorkThreadState, role: str | None) -> str:
+    normalized = normalize_work_role(role)
+    if normalized == "normcontrol":
+        return state.norm_status
+    return state.teacher_status
+
+
+def set_status_for_role(state: WorkThreadState, role: str | None, status: str) -> None:
+    normalized = normalize_work_role(role)
+    if normalized == "normcontrol":
+        state.norm_status = status
+        return
+
+    state.teacher_status = status
+    state.status = status
+
+
+def grades_for_role(state: WorkThreadState, role: str) -> dict:
+    columns = GRADE_COLUMNS[role]
+    return {
+        "preliminary": getattr(state, columns["preliminary"]) or "",
+        "defense": getattr(state, columns["predefense"]) or "",
+        "final": getattr(state, columns["final"]) or "",
+    }
+
+
+def apply_grades_for_role(state: WorkThreadState, role: str, grades: dict) -> None:
+    columns = GRADE_COLUMNS[role]
+    for key, value in grades.items():
+        normalized_key = GRADE_KEY_ALIASES.get(str(key))
+        if not normalized_key:
+            continue
+
+        setattr(
+            state,
+            columns[normalized_key],
+            "" if value is None else str(value).strip(),
+        )
+
+
+def teacher_flat_grades(state: WorkThreadState) -> dict:
+    teacher_grades = grades_for_role(state, "teacher")
+    return {
+        "preliminaryGrade": teacher_grades["preliminary"],
+        "predefenseGrade": teacher_grades["defense"],
+        "finalGrade": teacher_grades["final"],
+        "grade": teacher_grades["final"],
+        "teacherGrade": teacher_grades["final"],
+    }
+
 
 def extract_rtf_text(content: bytes) -> str:
     """Best-effort RTF to plain text extraction without external binaries."""
@@ -329,7 +434,12 @@ def get_or_create_work_state(
     if state:
         return state
 
-    state = WorkThreadState(student_id=student_id, status=default_status)
+    state = WorkThreadState(
+        student_id=student_id,
+        status=default_status,
+        teacher_status=default_status,
+        norm_status=default_status,
+    )
     db.add(state)
     db.commit()
     db.refresh(state)
@@ -376,7 +486,12 @@ def serialize_work_thread(db, student_id: int, recipient_role: str | None = None
         "student": student_profile,
         "teacher": TEACHER_PROFILE,
         "normcontrol": NORMCONTROL_PROFILE,
-        "status": state.status,
+        "status": status_for_role(state, recipient_role),
+        "teacherStatus": state.teacher_status,
+        "normStatus": state.norm_status,
+        "teacherGrades": grades_for_role(state, "teacher"),
+        "normGrades": grades_for_role(state, "normcontrol"),
+        **teacher_flat_grades(state),
         "submitted_at": serialize_datetime(state.submitted_at),
         "checked_at": serialize_datetime(state.checked_at),
         "messages": [serialize_work_message(message) for message in messages],
@@ -402,6 +517,7 @@ app.add_middleware(
 
 @app.get("/teacher_students")
 def list_teacher_students(recipient_role: str = "teacher"):
+    recipient_role = normalize_work_role(recipient_role) or "teacher"
     db = SessionLocal()
     try:
         students = []
@@ -417,9 +533,12 @@ def list_teacher_students(recipient_role: str = "teacher"):
                 "group": profile["group"],
                 "topic": profile["topic"],
                 "teacher": TEACHER_PROFILE["short_name"],
-                "grade": profile.get("grade", ""),
-                "teacherGrade": profile.get("teacherGrade", ""),
-                "status": state.status,
+                "status": status_for_role(state, recipient_role),
+                "teacherStatus": state.teacher_status,
+                "normStatus": state.norm_status,
+                "teacherGrades": grades_for_role(state, "teacher"),
+                "normGrades": grades_for_role(state, "normcontrol"),
+                **teacher_flat_grades(state),
                 "demo": bool(profile.get("demo")),
             })
         return students
@@ -469,7 +588,7 @@ async def create_work_message(
     try:
         state = get_or_create_work_state(db, student_id)
         if sender_role == "student" and file_content and recipient_role in {"teacher", "normcontrol"}:
-            state.status = "На проверке"
+            set_status_for_role(state, recipient_role, "На проверке")
             state.submitted_at = datetime.datetime.utcnow()
             state.checked_at = None
 
@@ -522,11 +641,12 @@ async def submit_work(
     file: UploadFile | None = File(default=None),
 ):
     recipient = recipient_profile_for_role(recipient_role)
+    recipient_role = normalize_work_role(recipient_role)
 
     db = SessionLocal()
     try:
         state = get_or_create_work_state(db, student_id)
-        state.status = "На проверке"
+        set_status_for_role(state, recipient_role, "На проверке")
         state.submitted_at = datetime.datetime.utcnow()
         state.checked_at = None
 
@@ -565,7 +685,7 @@ def mark_work_checked(student_id: int, checker_role: str = Form(default="teacher
     db = SessionLocal()
     try:
         state = get_or_create_work_state(db, student_id)
-        state.status = "Проверено"
+        set_status_for_role(state, checker_role, "Проверено")
         state.checked_at = datetime.datetime.utcnow()
 
         message = WorkMessage(
@@ -605,7 +725,7 @@ def update_work_status(
             student_id,
             student_profile.get("default_status", "Не проверено"),
         )
-        state.status = status
+        set_status_for_role(state, actor_role, status)
         state.updated_at = datetime.datetime.utcnow()
 
         if status == "На проверке":
@@ -625,6 +745,44 @@ def update_work_status(
             message_type="status",
         )
         db.add(message)
+        db.commit()
+        return serialize_work_thread(db, student_id, actor_role)
+    finally:
+        db.close()
+
+
+@app.post("/work_thread/{student_id}/grades")
+def update_work_grades(
+    student_id: int,
+    payload: dict | None = Body(default=None),
+):
+    payload = payload or {}
+    actor_role = normalize_work_role(payload.get("actor_role") or "teacher")
+    target_role = normalize_work_role(payload.get("target_role") or actor_role)
+
+    if actor_role not in {"teacher", "normcontrol"}:
+        raise HTTPException(status_code=403, detail="Only teacher or normcontrol can change grades")
+
+    if target_role not in {"teacher", "normcontrol"}:
+        raise HTTPException(status_code=400, detail="target_role must be teacher or normcontrol")
+
+    if actor_role == "teacher" and target_role != "teacher":
+        raise HTTPException(status_code=403, detail="Teacher can change only teacher grades")
+
+    grades = payload.get("grades")
+    if not isinstance(grades, dict):
+        raise HTTPException(status_code=400, detail="grades must be an object")
+
+    db = SessionLocal()
+    try:
+        student_profile = get_student_profile(student_id)
+        state = get_or_create_work_state(
+            db,
+            student_id,
+            student_profile.get("default_status", "Не проверено"),
+        )
+        apply_grades_for_role(state, target_role, grades)
+        state.updated_at = datetime.datetime.utcnow()
         db.commit()
         return serialize_work_thread(db, student_id, actor_role)
     finally:

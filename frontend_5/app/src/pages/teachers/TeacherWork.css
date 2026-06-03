@@ -453,6 +453,21 @@ a {
   gap: 6px;
 }
 
+.teacher-message.own {
+  align-self: flex-end;
+  margin-left: auto;
+  margin-right: 0;
+  background: #dff1ea;
+}
+
+.teacher-message.other {
+  align-self: flex-start;
+  margin-left: 0;
+  margin-right: auto;
+  background: #f6f6f6;
+  border-color: #e2e2e2;
+}
+
 .teacher-message-header {
   display: flex;
   justify-content: space-between;

@@ -1309,7 +1309,12 @@ if (filledKeywords.length === 0) {
                   <span className="chat-empty-text">Сообщений пока нет</span>
                 ) : (
                   visibleMessages.map((msg) => (
-                    <div className="message" key={msg.id}>
+                    <div
+                      className={`message ${
+                        msg.sender_role === "student" ? "own" : "other"
+                      }`}
+                      key={msg.id}
+                    >
                       <div className="message-author">{msg.sender_name}</div>
 
                       {msg.text && <p>{msg.text}</p>}

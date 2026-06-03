@@ -15,6 +15,7 @@ import {
   getTeacherStudents,
   getWorkThread,
   sendWorkMessage,
+  updateStudentWorkGrades,
   updateStudentWorkStatus,
 } from "../../api/workThread";
 
@@ -42,6 +43,7 @@ export default function TeacherWork() {
   const [chatStatus, setChatStatus] = useState("");
   const [isSendingMessage, setIsSendingMessage] = useState(false);
   const [isMarkingChecked, setIsMarkingChecked] = useState(false);
+  const [isSavingGrade, setIsSavingGrade] = useState(false);
 
   const [successMessage, setSuccessMessage] = useState(false);
   const [gradeMessage, setGradeMessage] = useState(false);
@@ -114,16 +116,16 @@ export default function TeacherWork() {
   );
   const selectedStudentId = selectedStudent?.id;
 
-  const applyStudentStatus = useCallback((studentId, status) => {
+  const applyStudentStatus = useCallback((studentId, status, patch = {}) => {
     setStudents((prevStudents) =>
       prevStudents.map((student) =>
-        student.id === studentId ? { ...student, status } : student
+        student.id === studentId ? { ...student, status, ...patch } : student
       )
     );
 
     setSelectedStudent((prevStudent) =>
       prevStudent && prevStudent.id === studentId
-        ? { ...prevStudent, status }
+        ? { ...prevStudent, status, ...patch }
         : prevStudent
     );
   }, []);
@@ -144,7 +146,11 @@ export default function TeacherWork() {
         ...prev,
         [studentId]: thread.messages ?? [],
       }));
-      applyStudentStatus(studentId, thread.status ?? "Не проверено");
+      applyStudentStatus(studentId, thread.status ?? "Не проверено", {
+        preliminaryGrade: thread.preliminaryGrade ?? "",
+        predefenseGrade: thread.predefenseGrade ?? "",
+        finalGrade: thread.finalGrade ?? "",
+      });
       setChatStatus("");
     } catch (error) {
       setChatStatus(`Не удалось загрузить переписку: ${error.message}`);
@@ -264,6 +270,38 @@ export default function TeacherWork() {
         ? { ...prevStudent, [gradeKey]: value }
         : prevStudent
     );
+  };
+
+  const getTeacherGradePayload = (student) => ({
+    preliminaryGrade: student?.preliminaryGrade ?? "",
+    predefenseGrade: student?.predefenseGrade ?? "",
+    finalGrade: student?.finalGrade ?? "",
+  });
+
+  const saveTeacherGrades = async (student) => {
+    if (!student || isSavingGrade) return;
+
+    setIsSavingGrade(true);
+    setChatStatus("Сохраняем оценку...");
+
+    try {
+      const thread = await updateStudentWorkGrades(student.id, {
+        actorRole: TEACHER_ROLE,
+        targetRole: TEACHER_ROLE,
+        grades: getTeacherGradePayload(student),
+      });
+      applyStudentStatus(student.id, thread.status ?? student.status, {
+        preliminaryGrade: thread.preliminaryGrade ?? "",
+        predefenseGrade: thread.predefenseGrade ?? "",
+        finalGrade: thread.finalGrade ?? "",
+      });
+      setChatStatus("Оценка сохранена.");
+      showGradeMessage();
+    } catch (error) {
+      setChatStatus(`Не удалось сохранить оценку: ${error.message}`);
+    } finally {
+      setIsSavingGrade(false);
+    }
   };
 
   const showGradeMessage = () => {
@@ -464,6 +502,18 @@ export default function TeacherWork() {
                             e.target.value
                           )
                         }
+                        onBlur={(e) =>
+                          saveTeacherGrades({
+                            ...student,
+                            [gradeField.key]: e.target.value,
+                          })
+                        }
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            e.currentTarget.blur();
+                          }
+                        }}
                         placeholder="Балл"
                       />
                     </td>
@@ -520,7 +570,12 @@ export default function TeacherWork() {
                 </p>
               ) : (
                 currentMessages.map((msg) => (
-                  <div className="teacher-message" key={msg.id}>
+                  <div
+                    className={`teacher-message ${
+                      msg.sender_role === TEACHER_ROLE ? "own" : "other"
+                    }`}
+                    key={msg.id}
+                  >
                     <div className="teacher-message-header">
                       <span className="teacher-message-author">
                         {msg.sender_name}
@@ -702,7 +757,8 @@ export default function TeacherWork() {
                           <button
                             type="button"
                             className="final-grade-save"
-                            onClick={showGradeMessage}
+                            disabled={isSavingGrade}
+                            onClick={() => saveTeacherGrades(selectedStudent)}
                           >
                             ✓
                           </button>

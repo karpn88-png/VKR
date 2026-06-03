@@ -581,6 +581,17 @@ a {
   margin-bottom: 10px;
 }
 
+.message.own {
+  align-self: flex-end;
+  background: #dff1ea;
+}
+
+.message.other {
+  align-self: flex-start;
+  background: #f6f6f6;
+  border: 1px solid #e2e2e2;
+}
+
 .message p {
   margin: 0 0 6px;
   color: #111111;
