@@ -155,12 +155,32 @@ textarea {
 
   .work-top-row,
   .work-content-grid,
+  .my-topics-content,
+  .topics-layout,
+  .topics-header,
   .cabinet-grid,
   .norm-cabinet-card {
     grid-template-columns: 1fr !important;
   }
 
+  .topics-panel {
+    min-height: auto !important;
+    padding: 22px !important;
+  }
+
+  .topics-search {
+    width: 100% !important;
+  }
+
+  .topics-filters,
+  .topic-add-form {
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
   .work-content-grid,
+  .my-topics-content,
+  .topics-layout,
   .cabinet-grid,
   .norm-cabinet-card {
     gap: 22px !important;
@@ -260,9 +280,100 @@ textarea {
     overflow-y: auto !important;
   }
 
+  .topics-table-wrapper {
+    width: 100% !important;
+    max-width: 100% !important;
+    overflow-x: auto !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch;
+  }
+
   .students-table {
     width: max-content !important;
     min-width: 980px !important;
+  }
+
+  .topics-table {
+    width: 100% !important;
+    min-width: 900px !important;
+    table-layout: fixed !important;
+  }
+
+  .topics-table th,
+  .topics-table td {
+    padding: 12px 10px !important;
+    overflow-wrap: anywhere !important;
+    word-break: normal !important;
+  }
+
+  .topics-table th:nth-child(1),
+  .topics-table td:nth-child(1) {
+    width: 56px !important;
+  }
+
+  .topics-table th:nth-child(2),
+  .topics-table td:nth-child(2) {
+    width: 180px !important;
+  }
+
+  .topics-table th:nth-child(3),
+  .topics-table td:nth-child(3) {
+    width: 190px !important;
+  }
+
+  .topics-table th:nth-child(4),
+  .topics-table td:nth-child(4) {
+    width: 220px !important;
+  }
+
+  .topics-table th:nth-child(5),
+  .topics-table td:nth-child(5) {
+    width: 140px !important;
+  }
+
+  .topics-table th:nth-child(6),
+  .topics-table td:nth-child(6) {
+    width: 190px !important;
+  }
+
+  .topics-panel .topics-table {
+    min-width: 940px !important;
+  }
+
+  .topics-panel .topics-table th:nth-child(1),
+  .topics-panel .topics-table td:nth-child(1) {
+    width: 170px !important;
+  }
+
+  .topics-panel .topics-table th:nth-child(2),
+  .topics-panel .topics-table td:nth-child(2) {
+    width: 130px !important;
+  }
+
+  .topics-panel .topics-table th:nth-child(3),
+  .topics-panel .topics-table td:nth-child(3) {
+    width: 150px !important;
+  }
+
+  .topics-panel .topics-table th:nth-child(4),
+  .topics-panel .topics-table td:nth-child(4) {
+    width: 360px !important;
+  }
+
+  .topics-panel .topics-table th:nth-child(5),
+  .topics-panel .topics-table td:nth-child(5) {
+    width: 120px !important;
+  }
+
+  .topics-panel .topics-table th:nth-child(6),
+  .topics-panel .topics-table td:nth-child(6) {
+    width: 40px !important;
+  }
+
+  .topic-status-select,
+  .topic-edit-btn,
+  .topic-delete-btn {
+    max-width: 100%;
   }
 
   .student-work-modal {
@@ -382,6 +493,22 @@ textarea {
   .personal-content {
     grid-template-columns: 1fr !important;
     gap: 6px !important;
+  }
+
+  .topics-panel {
+    padding: 16px !important;
+  }
+
+  .topics-header h1 {
+    font-size: 26px !important;
+  }
+
+  .topics-table {
+    min-width: 760px !important;
+  }
+
+  .topics-panel .topics-table {
+    min-width: 820px !important;
   }
 
   .cabinet-card,
